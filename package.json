@@ -1,0 +1,13 @@
+{
+  "name": "copilotkit-pydantic-ai-app",
+  "private": true,
+  "scripts": {
+    "backend": "uv run uvicorn backend.main:app --port 8002 --reload",
+    "runtime": "npm --prefix frontend run runtime",
+    "frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -n backend,runtime,frontend -c blue,magenta,green \"npm run backend\" \"npm run runtime\" \"npm run frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
