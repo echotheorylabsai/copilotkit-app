@@ -5,7 +5,8 @@
     "backend": "uv run uvicorn backend.main:app --port 8002 --reload",
     "runtime": "npm --prefix frontend run runtime",
     "frontend": "npm --prefix frontend run dev",
-    "dev": "concurrently -n backend,runtime,frontend -c blue,magenta,green \"npm run backend\" \"npm run runtime\" \"npm run frontend\""
+    "dev": "concurrently -n backend,runtime,frontend -c blue,magenta,green \"npm run backend\" \"npm run runtime\" \"npm run frontend\"",
+    "test": "uv run python -m backend.test_contracts"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

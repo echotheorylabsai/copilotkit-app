@@ -1,7 +1,8 @@
 # CopilotKit + Pydantic AI Chat App
 
-L2 notebook app: a React/CopilotKit chat UI talking to two Pydantic AI agents
-(OpenAI gpt-4.1 and Anthropic claude-haiku-4-5) over the AG-UI protocol.
+L2 notebook app: a React/CopilotKit chat UI talking to three Pydantic AI agents
+(OpenAI gpt-4.1, Anthropic claude-haiku-4-5, and an A2UI claude-sonnet-4-6 agent)
+over the AG-UI protocol.
 
 ## Setup
 
