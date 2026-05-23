@@ -10,11 +10,18 @@ const claudeAgent = new HttpAgent({
   url: process.env.CLAUDE_AGENT_URL || "http://localhost:8002/anthropic",
 });
 
+const a2uiAgent = new HttpAgent({
+  url: process.env.A2UI_AGENT_URL || "http://localhost:8002/a2ui",
+});
+
 const runtime = new CopilotRuntime({
   agents: {
     default: openaiAgent,
     claude: claudeAgent,
+    a2ui: a2uiAgent,
   },
+  // Scope A2UI injection to ONLY the a2ui agent so default/claude (L2/L3) are untouched.
+  a2ui: { injectA2UITool: true, agents: ["a2ui"] },
 });
 
 const app = createCopilotEndpoint({

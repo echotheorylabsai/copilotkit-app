@@ -2,3 +2,10 @@
 node_modules/
 .env
 __pycache__/
+
+# build output
+frontend/dist/
+
+# test / debug artifacts
+.playwright-mcp/
+*.png
