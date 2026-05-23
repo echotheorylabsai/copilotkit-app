@@ -21,6 +21,7 @@ export const AGENTS = [
     envVar: "CLAUDE_AGENT_URL",
     defaultUrl: "http://localhost:8002/anthropic",
     a2ui: false,
+    openGenUi: false,
   },
   {
     id: "default",
@@ -28,6 +29,7 @@ export const AGENTS = [
     envVar: "OPENAI_AGENT_URL",
     defaultUrl: "http://localhost:8002/openai",
     a2ui: false,
+    openGenUi: false,
   },
   {
     id: "a2ui",
@@ -35,6 +37,15 @@ export const AGENTS = [
     envVar: "A2UI_AGENT_URL",
     defaultUrl: "http://localhost:8002/a2ui",
     a2ui: true,
+    openGenUi: false,
+  },
+  {
+    id: "open",
+    label: "Open Gen UI (Sonnet 4.6)",
+    envVar: "OPEN_AGENT_URL",
+    defaultUrl: "http://localhost:8002/open",
+    a2ui: false,
+    openGenUi: true,
   },
 ] as const;
 
@@ -47,3 +58,8 @@ export const DEFAULT_AGENT_ID: AgentId = "claude";
 export const A2UI_AGENT_IDS: readonly AgentId[] = AGENTS.filter((a) => a.a2ui).map(
   (a) => a.id,
 );
+
+/** Agent ids that receive the L5 Excalidraw MCP App + open-generative-UI middleware. */
+export const OPEN_GEN_UI_AGENT_IDS: readonly AgentId[] = AGENTS.filter(
+  (a) => a.openGenUi,
+).map((a) => a.id);

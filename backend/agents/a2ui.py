@@ -1,18 +1,13 @@
+# ── L4: A2UI (declarative generative UI) agent ───────────────────────────────
+# Additive. The Node @ag-ui/a2ui-middleware (scoped to this agent in server.ts)
+# injects the dynamic `render_a2ui` frontend tool and the A2UI protocol guidelines.
+
 import json
 
 from pydantic_ai import Agent
 from typing_extensions import TypedDict
 
 from backend import a2ui
-
-# Mirrors the notebook's two create_agent() calls — same system prompt, Pydantic AI style.
-openai_agent = Agent("openai:gpt-4.1", system_prompt="You are a helpful assistant")
-claude_agent = Agent("anthropic:claude-haiku-4-5", system_prompt="You are a helpful assistant")
-
-
-# ── L4: A2UI (declarative generative UI) agent ───────────────────────────────
-# Additive. The Node @ag-ui/a2ui-middleware (scoped to this agent in server.ts)
-# injects the dynamic `render_a2ui` frontend tool and the A2UI protocol guidelines.
 
 CATALOG_ID = "copilotkit://app-dashboard-catalog"
 SURFACE_ID = "flight-search-results"
@@ -179,13 +174,3 @@ def display_flights(flights: list[Flight]) -> dict:
         a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
         a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
     ])
-
-
-# Single source of truth for FastAPI routes. main.py registers one POST endpoint
-# per entry. The path is the public contract consumed by frontend/server.ts
-# HttpAgent URLs — see README "Contracts" for the route ⇆ agent-id ⇆ model map.
-AGENT_ROUTES = {
-    "/openai": openai_agent,
-    "/anthropic": claude_agent,
-    "/a2ui": a2ui_agent,
-}

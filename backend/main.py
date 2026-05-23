@@ -20,6 +20,6 @@ def _make_endpoint(agent: Agent):
     return endpoint
 
 
-# One POST route per agent, driven by the registry in agents.py.
+# One POST route per agent, driven by the registry in backend/agents/__init__.py.
 for path, agent in AGENT_ROUTES.items():
     app.add_api_route(path, _make_endpoint(agent), methods=["POST"])

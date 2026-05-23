@@ -1,5 +1,5 @@
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
-import { A2UI_AGENT_IDS, AgentId } from "../agents";
+import { A2UI_AGENT_IDS, OPEN_GEN_UI_AGENT_IDS, AgentId } from "../agents";
 
 // L3 suggestions work on every agent (frontend useComponent tools: pieChart, flightCard).
 const L3_SUGGESTIONS = [
@@ -31,10 +31,26 @@ const A2UI_SUGGESTIONS = [
   },
 ];
 
+// L5 suggestions need the open-gen-ui agent's Excalidraw MCP App + open
+// generative UI middleware. They no-op on the other agents, so only surface
+// them when the open agent is selected.
+const OPEN_GEN_UI_SUGGESTIONS = [
+  {
+    title: "Network diagram",
+    message: "Show me a simple network diagram of three routers, two laptops and a server using excalidraw",
+  },
+  {
+    title: "Make it rain tacos",
+    message: "Make a card with an animation of raining taco emojis",
+  },
+];
+
 export function useExampleSuggestions(agentId: AgentId) {
   const suggestions = A2UI_AGENT_IDS.includes(agentId)
     ? [...L3_SUGGESTIONS, ...A2UI_SUGGESTIONS]
-    : L3_SUGGESTIONS;
+    : OPEN_GEN_UI_AGENT_IDS.includes(agentId)
+      ? [...L3_SUGGESTIONS, ...OPEN_GEN_UI_SUGGESTIONS]
+      : L3_SUGGESTIONS;
 
   useConfigureSuggestions({
     available: "always",
