@@ -11,16 +11,28 @@ without real keys. `backend/test_contracts.py` parses files as text precisely to
 stay key-free; keep it that way.
 """
 
+from pydantic_ai.ui import StateDeps
+
 from backend.agents.a2ui import COMPONENT_NAMES, a2ui_agent
 from backend.agents.claude import claude_agent
 from backend.agents.open_gen_ui import open_agent
 from backend.agents.openai import openai_agent
+from backend.agents.todos import TodoState, todo_agent
 
 AGENT_ROUTES = {
     "/openai": openai_agent,
     "/anthropic": claude_agent,
     "/a2ui": a2ui_agent,
     "/open": open_agent,
+    "/todos": todo_agent,
 }
 
-__all__ = ["AGENT_ROUTES", "COMPONENT_NAMES"]
+# Optional per-route deps factory. Routes absent here run with deps=None (unchanged).
+# StateDeps holds mutable state, so it MUST be built fresh per request — hence a
+# factory, not a shared instance. The todo agent starts each run with an empty list;
+# the frontend's current state then overwrites it via RunAgentInput.state.
+AGENT_DEPS = {
+    "/todos": lambda: StateDeps(TodoState()),
+}
+
+__all__ = ["AGENT_ROUTES", "AGENT_DEPS", "COMPONENT_NAMES"]

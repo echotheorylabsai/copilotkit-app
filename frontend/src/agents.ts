@@ -47,12 +47,27 @@ export const AGENTS = [
     a2ui: false,
     openGenUi: true,
   },
+  {
+    // L6 shared-state todo agent. `page: true` keeps it OUT of the L2–L5 chat
+    // dropdown (it lives on its own /todos route) while still being wired into the
+    // runtime by server.ts, which maps over the full AGENTS list.
+    id: "todo",
+    label: "Todos (L6)",
+    envVar: "TODO_AGENT_URL",
+    defaultUrl: "http://localhost:8002/todos",
+    a2ui: false,
+    openGenUi: false,
+    page: true,
+  },
 ] as const;
 
 export type AgentId = (typeof AGENTS)[number]["id"];
 
 /** Agent selected on first load (matches the original default). */
 export const DEFAULT_AGENT_ID: AgentId = "claude";
+
+/** Agents shown in the L2–L5 chat dropdown (everything except dedicated-page agents). */
+export const DROPDOWN_AGENTS = AGENTS.filter((a) => !("page" in a && a.page));
 
 /** Agent ids that receive A2UI middleware injection + the L4 suggestions. */
 export const A2UI_AGENT_IDS: readonly AgentId[] = AGENTS.filter((a) => a.a2ui).map(

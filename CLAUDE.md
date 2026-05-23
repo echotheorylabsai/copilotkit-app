@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A demo chat app: React/CopilotKit frontend ⇄ Node CopilotRuntime ⇄ Python FastAPI
-serving four Pydantic AI agents, all over the **AG-UI protocol**. It demonstrates
+serving five Pydantic AI agents, all over the **AG-UI protocol**. It demonstrates
 progressively richer generative UI ("levels"):
 
 - **L2** — plain chat (OpenAI `default`, Claude `claude` agents).
@@ -17,6 +17,14 @@ progressively richer generative UI ("levels"):
   runtime-injected, **scoped** capabilities — the Excalidraw MCP App and
   `openGenerativeUI` (arbitrary HTML/CSS/JS rendered in a sandboxed iframe). The
   backend agent stays tool-less; the capability is wired in `frontend/server.ts`.
+- **L6** — shared state: the `todo` agent (Haiku 4.5) and the UI share one typed
+  state object (`todos`). Lives on its own `/todos` **route** (react-router), not the
+  dropdown, so its `useFrontendTool` + layout stay isolated from L2–L5. Frontend→agent
+  sync is automatic (`agent.setState` → `RunAgentInput.state` → `StateDeps[TodoState]`);
+  agent→frontend sync is **opt-in** — a tool returns
+  `ToolReturn(metadata=StateSnapshotEvent(...))` (Pydantic AI does *not* auto-emit like
+  LangGraph's `Command(update=…)`). See `backend/agents/todos.py` +
+  `frontend/src/TodoPage.tsx`.
 
 ## Commands
 

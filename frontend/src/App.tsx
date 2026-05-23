@@ -4,7 +4,7 @@ import { useComponent } from "@copilotkit/react-core/v2";
 import { FlightCard, FlightCardProps } from "./components/flight-card";
 import { PieChart, PieChartProps } from "./components/pie-chart";
 import { useExampleSuggestions } from "./hooks/use-example-suggestions";
-import { AGENTS, AgentId, DEFAULT_AGENT_ID } from "./agents";
+import { DROPDOWN_AGENTS, AgentId, DEFAULT_AGENT_ID } from "./agents";
 
 export default function App() {
   const [agentId, setAgentId] = useState<AgentId>(DEFAULT_AGENT_ID);
@@ -32,7 +32,7 @@ export default function App() {
         value={agentId}
         onChange={(e) => setAgentId(e.target.value as AgentId)}
       >
-        {AGENTS.map((agent) => (
+        {DROPDOWN_AGENTS.map((agent) => (
           <option key={agent.id} value={agent.id}>
             {agent.label}
           </option>

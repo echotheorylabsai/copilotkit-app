@@ -1,8 +1,9 @@
 # CopilotKit + Pydantic AI Chat App
 
-L2 notebook app: a React/CopilotKit chat UI talking to four Pydantic AI agents
-(OpenAI gpt-4.1, Anthropic claude-haiku-4-5, an A2UI claude-sonnet-4-6 agent, and an
-open-generative-UI claude-sonnet-4-6 agent) over the AG-UI protocol.
+Demo app: a React/CopilotKit chat UI talking to five Pydantic AI agents
+(OpenAI gpt-4.1, Anthropic claude-haiku-4-5, an A2UI claude-sonnet-4-6 agent, an
+open-generative-UI claude-sonnet-4-6 agent, and an L6 shared-state todo
+claude-haiku-4-5 agent on its own `/todos` page) over the AG-UI protocol.
 
 ## Setup
 
@@ -61,15 +62,20 @@ maps the UI `agentId` to a FastAPI route via `HttpAgent`.
 | `claude`                | `/anthropic`  | `claude_agent` — `anthropic:claude-haiku-4-5` |
 | `a2ui`                  | `/a2ui`       | `a2ui_agent` — `anthropic:claude-sonnet-4-6` |
 | `open`                  | `/open`       | `open_agent` — `anthropic:claude-sonnet-4-6` |
+| `todo`                  | `/todos`      | `todo_agent` — `anthropic:claude-haiku-4-5` (L6; on the `/todos` page, not the dropdown) |
 
 Single sources of truth:
 - **Frontend** (`agentId`s, labels, routes, A2UI + open-gen-UI scope flags):
   `frontend/src/agents.ts` — consumed by `App.tsx`, `server.ts`, and
-  `use-example-suggestions.ts`.
+  `use-example-suggestions.ts`. The `todo` agent carries `page: true`, which keeps it
+  out of the L2–L5 dropdown (`DROPDOWN_AGENTS`) while still being wired into the
+  runtime by `server.ts`.
 - **Backend** (route → agent): `AGENT_ROUTES` in `backend/agents/__init__.py` —
   consumed by `backend/main.py`. Each agent lives in its own submodule:
   `backend/agents/openai.py`, `backend/agents/claude.py`, `backend/agents/a2ui.py`,
-  `backend/agents/open_gen_ui.py`.
+  `backend/agents/open_gen_ui.py`, `backend/agents/todos.py`. Routes needing
+  request-scoped deps (the L6 `todo` agent uses `StateDeps[TodoState]`) register a
+  factory in `AGENT_DEPS`.
 
 ### Exact strings & invariants
 
@@ -82,3 +88,5 @@ Single sources of truth:
 | Open-gen-UI / MCP-Apps scope | `["open"]` | `server.ts` `openGenerativeUI.agents` + each `mcpApps.servers[].agentId` — scoped so the Excalidraw MCP app and open generative UI are injected into the `open` agent only, leaving L2/L3/L4 untouched |
 | Allowed component names | `COMPONENT_NAMES` | `backend/agents/a2ui.py` prompt ⇆ keys of `demonstrationCatalogDefinitions` in `frontend/src/catalog/definitions.ts` |
 | Vite proxy path | `/api/copilotkit` → `:4002` | `frontend/vite.config.ts` ⇆ `runtimeUrl` in `main.tsx` |
+| L6 shared-state key | `todos` | `backend/agents/todos.py` `TodoState.todos` + the `StateSnapshotEvent` snapshot ⇆ `agent.state.todos` / `agent.setState({ todos })` in `frontend/src/TodoPage.tsx` |
+| L6 frontend tool | `openOrCloseTodos` | `useFrontendTool` name in `frontend/src/TodoPage.tsx` ⇆ the tool name in the `todo_agent` system prompt (`backend/agents/todos.py`) |
