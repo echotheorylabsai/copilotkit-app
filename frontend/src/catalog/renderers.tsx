@@ -11,14 +11,8 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import {
-  createCatalog,
-  type CatalogRenderers,
-} from "@copilotkit/a2ui-renderer";
-import {
-  demonstrationCatalogDefinitions,
-  type DemonstrationCatalogDefinitions,
-} from "./definitions";
+import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import type { DemonstrationCatalogDefinitions } from "./definitions";
 
 function resolveText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -29,7 +23,7 @@ function resolveText(value: unknown): string {
 
 // ─── Renderers (type-checked against schema definitions) ────────────
 
-const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefinitions> =
+export const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefinitions> =
   {
     Title: ({ props }) => {
       const Tag = (
@@ -499,14 +493,3 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
       );
     },
   };
-
-// ─── Assembled Catalog ───────────────────────────────────────────────
-
-export const demonstrationCatalog = createCatalog(
-  demonstrationCatalogDefinitions,
-  demonstrationCatalogRenderers,
-  {
-    catalogId: "copilotkit://app-dashboard-catalog",
-    includeBasicCatalog: false,
-  },
-);

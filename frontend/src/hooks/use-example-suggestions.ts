@@ -1,4 +1,5 @@
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import { A2UI_AGENT_IDS, AgentId } from "../agents";
 
 // L3 suggestions work on every agent (frontend useComponent tools: pieChart, flightCard).
 const L3_SUGGESTIONS = [
@@ -30,12 +31,21 @@ const A2UI_SUGGESTIONS = [
   },
 ];
 
-export function useExampleSuggestions(agentId: string) {
-  const suggestions =
-    agentId === "a2ui" ? [...L3_SUGGESTIONS, ...A2UI_SUGGESTIONS] : L3_SUGGESTIONS;
+export function useExampleSuggestions(agentId: AgentId) {
+  const suggestions = A2UI_AGENT_IDS.includes(agentId)
+    ? [...L3_SUGGESTIONS, ...A2UI_SUGGESTIONS]
+    : L3_SUGGESTIONS;
 
   useConfigureSuggestions({
     available: "always",
     suggestions,
+    // Scope this config to the selected agent. This hook runs in <App>, OUTSIDE
+    // <CopilotChat>, so useConfigureSuggestions has no chat-configuration context
+    // to read the agent from — it falls back to the library's DEFAULT_AGENT_ID
+    // ("default"). On first load, agents are still being discovered async, so the
+    // "reload all agents" path finds none and only reloads that fallback id —
+    // which happens to be our OpenAI agent. Binding to `agentId` reloads the
+    // right agent immediately and re-runs on every switch.
+    consumerAgentId: agentId,
   });
 }

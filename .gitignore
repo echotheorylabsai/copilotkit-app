@@ -9,3 +9,5 @@ frontend/dist/
 # test / debug artifacts
 .playwright-mcp/
 *.png
+
+docs/superpowers/

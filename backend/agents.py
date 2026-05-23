@@ -17,6 +17,16 @@ claude_agent = Agent("anthropic:claude-haiku-4-5", system_prompt="You are a help
 CATALOG_ID = "copilotkit://app-dashboard-catalog"
 SURFACE_ID = "flight-search-results"
 
+# The component names the a2ui agent is allowed to emit. This list MUST mirror the
+# keys of `demonstrationCatalogDefinitions` in frontend/src/catalog/definitions.ts —
+# the model is told to use only these, and the frontend catalog is what can render
+# them. (Cross-language contract; kept in sync by hand — see README "Contracts".)
+COMPONENT_NAMES = [
+    "Title", "Text", "Icon", "Image", "Divider", "Card", "List", "Tabs", "Row",
+    "Column", "DashboardCard", "Metric", "PieChart", "BarChart", "Badge",
+    "DataTable", "Button",
+]
+
 # Fixed flight-card carousel: a predefined, data-bound A2UI component tree
 # (ported verbatim from the L4 notebook, originally produced by the A2UI Composer).
 #
@@ -76,41 +86,39 @@ class Flight(TypedDict):
     price: str
 
 
-a2ui_agent = Agent(
-    "anthropic:claude-sonnet-4-6",
-    system_prompt=(
-        "You are a helpful assistant that creates rich visual UI.\n\n"
-        "Tool guidance:\n"
-        "- ALL flight-related queries: first call search_flights to fetch flight "
-        "data, then call display_flights with the results. NEVER use render_a2ui "
-        "for flights.\n"
-        "- For sales/business data requests: first call get_sales_data to fetch "
-        "the latest metrics, then call render_a2ui to visualize the results as a "
-        "dashboard with charts, metrics, and cards.\n"
-        "- For other rich UI: call render_a2ui directly.\n\n"
-        "When you call render_a2ui you MUST:\n"
-        f'- Pass catalogId exactly "{CATALOG_ID}". Never omit it and never use "basic".\n'
-        "- Build the `components` array using ONLY these component names, each as a "
-        "  `component` field (NOT `type`): Title, Text, Icon, Image, Divider, Card, "
-        "  List, Tabs, Row, Column, DashboardCard, Metric, PieChart, BarChart, Badge, "
-        "  DataTable, Button. There is no `Box` component.\n"
-        "- Put each component's props as flat keys on the object (not nested under "
-        "  `props`). Exactly one component has id \"root\".\n"
-        "- Use inline literal values (e.g. Metric value \"$1.2M\"; PieChart/BarChart "
-        "  data as an inline array of {label, value}). Do not use {path:...} bindings.\n"
-        "Example components array for a dashboard:\n"
-        '[{"id":"root","component":"Column","gap":16,"children":["t","m","c"]},'
-        '{"id":"t","component":"Title","text":"Sales Dashboard","level":"h1"},'
-        '{"id":"m","component":"Row","gap":16,"children":["m1"]},'
-        '{"id":"m1","component":"DashboardCard","title":"Revenue","child":"m1v"},'
-        '{"id":"m1v","component":"Metric","label":"Total Revenue","value":"$1.2M","trend":"up","trendValue":"4.7%"},'
-        '{"id":"c","component":"DashboardCard","title":"Revenue by Category","child":"pie"},'
-        '{"id":"pie","component":"PieChart","data":[{"label":"Electronics","value":420000},{"label":"Books","value":125000}]}]\n\n'
-        "IMPORTANT: After calling a tool, do NOT repeat or summarize the data "
-        "in your text response. The tool renders UI automatically. "
-        "Just confirm what was rendered."
-    ),
+A2UI_SYSTEM_PROMPT = (
+    "You are a helpful assistant that creates rich visual UI.\n\n"
+    "Tool guidance:\n"
+    "- ALL flight-related queries: first call search_flights to fetch flight "
+    "data, then call display_flights with the results. NEVER use render_a2ui "
+    "for flights.\n"
+    "- For sales/business data requests: first call get_sales_data to fetch "
+    "the latest metrics, then call render_a2ui to visualize the results as a "
+    "dashboard with charts, metrics, and cards.\n"
+    "- For other rich UI: call render_a2ui directly.\n\n"
+    "When you call render_a2ui you MUST:\n"
+    f'- Pass catalogId exactly "{CATALOG_ID}". Never omit it and never use "basic".\n'
+    "- Build the `components` array using ONLY these component names, each as a "
+    f"`component` field (NOT `type`): {', '.join(COMPONENT_NAMES)}. "
+    "There is no `Box` component.\n"
+    "- Put each component's props as flat keys on the object (not nested under "
+    '`props`). Exactly one component has id "root".\n'
+    '- Use inline literal values (e.g. Metric value "$1.2M"; PieChart/BarChart '
+    "data as an inline array of {label, value}). Do not use {path:...} bindings.\n"
+    "Example components array for a dashboard:\n"
+    '[{"id":"root","component":"Column","gap":16,"children":["t","m","c"]},'
+    '{"id":"t","component":"Title","text":"Sales Dashboard","level":"h1"},'
+    '{"id":"m","component":"Row","gap":16,"children":["m1"]},'
+    '{"id":"m1","component":"DashboardCard","title":"Revenue","child":"m1v"},'
+    '{"id":"m1v","component":"Metric","label":"Total Revenue","value":"$1.2M","trend":"up","trendValue":"4.7%"},'
+    '{"id":"c","component":"DashboardCard","title":"Revenue by Category","child":"pie"},'
+    '{"id":"pie","component":"PieChart","data":[{"label":"Electronics","value":420000},{"label":"Books","value":125000}]}]\n\n'
+    "IMPORTANT: After calling a tool, do NOT repeat or summarize the data "
+    "in your text response. The tool renders UI automatically. "
+    "Just confirm what was rendered."
 )
+
+a2ui_agent = Agent("anthropic:claude-sonnet-4-6", system_prompt=A2UI_SYSTEM_PROMPT)
 
 
 @a2ui_agent.tool_plain
@@ -171,3 +179,13 @@ def display_flights(flights: list[Flight]) -> dict:
         a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
         a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
     ])
+
+
+# Single source of truth for FastAPI routes. main.py registers one POST endpoint
+# per entry. The path is the public contract consumed by frontend/server.ts
+# HttpAgent URLs — see README "Contracts" for the route ⇆ agent-id ⇆ model map.
+AGENT_ROUTES = {
+    "/openai": openai_agent,
+    "/anthropic": claude_agent,
+    "/a2ui": a2ui_agent,
+}

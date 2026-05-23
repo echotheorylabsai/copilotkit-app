@@ -3,25 +3,23 @@ from dotenv import load_dotenv
 load_dotenv()  # load OPENAI_API_KEY / ANTHROPIC_API_KEY from .env
 
 from fastapi import FastAPI
+from pydantic_ai import Agent
 from starlette.requests import Request
 from starlette.responses import Response
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
-from backend.agents import openai_agent, claude_agent, a2ui_agent
+from backend.agents import AGENT_ROUTES
 
 app = FastAPI()
 
 
-@app.post("/openai")
-async def openai_endpoint(request: Request) -> Response:
-    return await AGUIAdapter.dispatch_request(request, agent=openai_agent)
+def _make_endpoint(agent: Agent):
+    async def endpoint(request: Request) -> Response:
+        return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+    return endpoint
 
 
-@app.post("/anthropic")
-async def anthropic_endpoint(request: Request) -> Response:
-    return await AGUIAdapter.dispatch_request(request, agent=claude_agent)
-
-
-@app.post("/a2ui")
-async def a2ui_endpoint(request: Request) -> Response:
-    return await AGUIAdapter.dispatch_request(request, agent=a2ui_agent)
+# One POST route per agent, driven by the registry in agents.py.
+for path, agent in AGENT_ROUTES.items():
+    app.add_api_route(path, _make_endpoint(agent), methods=["POST"])

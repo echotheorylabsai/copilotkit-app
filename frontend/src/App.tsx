@@ -4,11 +4,10 @@ import { useComponent } from "@copilotkit/react-core/v2";
 import { FlightCard, FlightCardProps } from "./components/flight-card";
 import { PieChart, PieChartProps } from "./components/pie-chart";
 import { useExampleSuggestions } from "./hooks/use-example-suggestions";
-
-type AgentId = "default" | "claude" | "a2ui";
+import { AGENTS, AgentId, DEFAULT_AGENT_ID } from "./agents";
 
 export default function App() {
-  const [agentId, setAgentId] = useState<AgentId>("claude");
+  const [agentId, setAgentId] = useState<AgentId>(DEFAULT_AGENT_ID);
 
   useExampleSuggestions(agentId);
 
@@ -33,9 +32,11 @@ export default function App() {
         value={agentId}
         onChange={(e) => setAgentId(e.target.value as AgentId)}
       >
-        <option value="claude">Claude (haiku-4-5)</option>
-        <option value="default">OpenAI (gpt-4.1)</option>
-        <option value="a2ui">A2UI (Sonnet 4.6)</option>
+        {AGENTS.map((agent) => (
+          <option key={agent.id} value={agent.id}>
+            {agent.label}
+          </option>
+        ))}
       </select>
       <CopilotChat key={agentId} agentId={agentId} />
     </div>

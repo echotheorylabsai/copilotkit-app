@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
-import { demonstrationCatalog } from "./catalog/renderers";
+import { demonstrationCatalog } from "./catalog";
 import "./globals.css";
 import App from "./App";
 
