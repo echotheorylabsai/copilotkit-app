@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AG-UI ⇄ Pydantic AI — Request Flow (Todo Agent)</title>
+<style>
+  :root{
+    --ink:#13212b; --ink-soft:#48606e; --line:#d6e0e6; --paper:#f6f8f9;
+    --card:#ffffff; --accent:#0a6e6e; --accent-soft:#e3f1f0;
+    --in:#1d6fb8; --in-soft:#e7f0f9; --out:#1f8a4c; --out-soft:#e6f4ec;
+    --warn:#9a5b00; --warn-soft:#fbf0dd; --code:#0e2733; --codebg:#0d1b22;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    line-height:1.55;font-size:15px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 96px}
+  header{padding:54px 0 30px;border-bottom:1px solid var(--line)}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);margin:0 0 10px}
+  h1{font-size:30px;line-height:1.18;margin:0 0 12px;letter-spacing:-.01em}
+  .lede{color:var(--ink-soft);max-width:72ch;margin:0}
+  .verified{display:inline-flex;align-items:center;gap:7px;margin-top:18px;font-family:var(--mono);
+    font-size:11.5px;color:var(--out);background:var(--out-soft);border:1px solid #bfe3cd;
+    padding:5px 11px;border-radius:20px}
+  .verified::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--out)}
+
+  h2{font-size:22px;font-family:var(--sans);letter-spacing:-.012em;font-weight:600;line-height:1.25;
+    color:var(--ink);margin:58px 0 10px;padding-top:30px;border-top:1px solid var(--line)}
+  h2 .n{color:var(--accent);font-family:var(--mono);font-size:15px;font-weight:700;margin-right:13px;
+    vertical-align:1px}
+  .sub{color:var(--ink-soft);margin:0 0 20px;max-width:74ch}
+  h3{font-size:17px;font-weight:700;color:var(--ink);margin:30px 0 8px}
+
+  /* scenario banner */
+  .scn{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+    margin:26px 0 6px;display:flex;gap:16px;align-items:flex-start}
+  .scn .tag{font-family:var(--mono);font-size:11px;background:var(--accent);color:#fff;
+    padding:4px 9px;border-radius:6px;white-space:nowrap;margin-top:2px}
+  .scn p{margin:0;color:var(--ink-soft)}
+  .scn b{color:var(--ink)}
+
+  /* pipeline */
+  .pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:8px 0 6px}
+  .stage{background:var(--card);border:1px solid var(--line);padding:16px 15px;position:relative}
+  .stage:not(:last-child){border-right:none}
+  .stage:first-child{border-radius:12px 0 0 12px}
+  .stage:last-child{border-radius:0 12px 12px 0}
+  .stage .loc{font-family:var(--mono);font-size:10.5px;color:var(--accent);letter-spacing:.04em}
+  .stage h4{margin:7px 0 4px;font-size:14px}
+  .stage p{margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.45}
+  .stage .file{font-family:var(--mono);font-size:11px;color:var(--ink-soft);margin-top:8px;display:block}
+  .arrowrow{display:grid;grid-template-columns:repeat(4,1fr);margin:0 0 4px}
+  .arrowrow span{text-align:center;font-family:var(--mono);font-size:11px;color:var(--in);padding:6px 0}
+
+  /* code */
+  pre{background:var(--codebg);color:#d8e4e8;border-radius:10px;padding:16px 18px;overflow-x:auto;
+    font-family:var(--mono);font-size:12.5px;line-height:1.62;margin:14px 0;
+    border:1px solid #16323d}
+  pre .c{color:#5f7d8a;font-style:italic}      /* comment */
+  pre .k{color:#5ec8c8}                          /* keyword */
+  pre .s{color:#e0a45e}                          /* string */
+  pre .f{color:#8fd4ff}                          /* func/attr */
+  pre .hl{background:rgba(94,200,200,.13);display:inline-block;width:100%}
+  code.in{font-family:var(--mono);font-size:12.5px;background:var(--in-soft);color:var(--in);
+    padding:1px 6px;border-radius:5px}
+  code.kw{font-family:var(--mono);font-size:12.5px;background:#eef1f3;color:var(--code);
+    padding:1px 6px;border-radius:5px}
+
+  /* direction labels */
+  .dir{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;
+    padding:3px 10px;border-radius:20px;margin-bottom:2px}
+  .dir.into{background:var(--in-soft);color:var(--in)}
+  .dir.outof{background:var(--out-soft);color:var(--out)}
+
+  /* dispatch call stack — timeline rail */
+  .callstack{position:relative;margin:20px 0 6px}
+  .callstack::before{content:"";position:absolute;left:14px;top:18px;bottom:18px;width:2px;background:var(--line);z-index:0}
+  .cs-step{position:relative;padding-left:46px;margin-bottom:11px}
+  .cs-num{position:absolute;left:0;top:0;width:30px;height:30px;border-radius:50%;
+    background:var(--in-soft);color:var(--in);border:1.5px solid #bcd6ee;font-family:var(--mono);
+    font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:1}
+  .cs-step.you .cs-num{background:#eef1f3;color:var(--accent);border-color:#cdd6db}
+  .cs-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:11px 15px}
+  .cs-step.you .cs-card{border-color:#cdd6db;background:#fbfcfc}
+  .cs-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .cs-sig{font-family:var(--mono);font-size:12.5px;color:var(--code);line-height:1.55}
+  .cs-sig b{color:var(--in)}
+  .cs-step.you .cs-sig b{color:var(--accent)}
+  .cs-loc{font-family:var(--mono);font-size:10px;color:var(--ink-soft);white-space:nowrap;
+    background:var(--paper);border:1px solid var(--line);padding:2px 9px;border-radius:20px}
+  .cs-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.52;margin-top:6px}
+  .cs-desc code{font-family:var(--mono);font-size:11.5px;background:#eef1f3;color:var(--code);padding:1px 5px;border-radius:5px}
+  .cs-boundary{position:relative;padding-left:46px;margin:0 0 11px}
+  .cs-boundary span{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;
+    text-transform:uppercase;color:var(--in);background:var(--in-soft);border:1px solid #bcd6ee;border-radius:20px;padding:3px 11px}
+
+  /* table */
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;background:var(--card);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line)}
+  th{background:#eef3f4;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft)}
+  tr:last-child td{border-bottom:none}
+  td.m,th.m{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
+  td .acc{color:var(--accent)}
+
+  /* notes */
+  .note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:13px 16px;border-radius:0 8px 8px 0;
+    margin:18px 0;font-size:13.5px}
+  .note b{color:var(--warn)}
+  .note.blue{border-color:var(--in);background:var(--in-soft)}
+  .note.blue b{color:var(--in)}
+  .note ul,.note ol{margin:8px 0 0;padding-left:18px}
+  .note li{margin:4px 0;line-height:1.5}
+  .note .lead{display:block;margin-bottom:2px}
+
+  /* sequence diagram */
+  .seq{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;margin:18px 0;overflow-x:auto}
+  .seq svg{display:block;min-width:760px}
+
+  .legend{display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--ink-soft);margin:10px 0 0}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  /* lifecycle tags (concurrency section) */
+  .life{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:5px;white-space:nowrap}
+  .life.shared{background:#eef3f4;color:var(--ink-soft)}
+  .life.per{background:var(--in-soft);color:var(--in)}
+
+  /* part banners */
+  .part{border-top:2px solid var(--accent);margin:60px 0 0;padding:18px 0 0;
+    font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--accent)}
+  .part span{display:inline-block;background:var(--accent-soft);border:1px solid var(--accent);
+    color:var(--accent);padding:5px 14px;border-radius:20px}
+
+  footer{margin-top:60px;padding-top:20px;border-top:1px solid var(--line);font-size:12px;
+    color:var(--ink-soft);font-family:var(--mono)}
+  @media(max-width:760px){
+    .pipe,.arrowrow{grid-template-columns:1fr}
+    .stage{border-right:1px solid var(--line)!important;border-radius:0!important}
+    .stage:first-child{border-radius:12px 12px 0 0!important}
+    .stage:last-child{border-radius:0 0 12px 12px!important}
+    .arrowrow{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="kicker">Internals · L6 Shared-State Todo Agent</p>
+  <h1>How one request flows: Browser → CopilotRuntime → AG-UI Adapter → Pydantic AI</h1>
+  <p class="lede">A line-by-line trace of the todo agent. Every method, every transformation, every
+  event — followed from the moment you type a message to the moment the panel re-renders. Two data
+  directions are colour-coded throughout: <span class="dir into">inbound (browser → agent)</span>
+  <span class="dir outof">outbound (agent → browser)</span>.</p>
+  <span class="verified">Traced against pydantic_ai 1.102.0 in <code style="background:none;color:inherit;padding:0">.venv/…/pydantic_ai/</code> — code snippets simplified (docstrings &amp; guards elided) for clarity</span>
+</header>
+
+<!-- ───────────────────────── SCENARIO ───────────────────────── -->
+<div class="scn">
+  <span class="tag">SCENARIO</span>
+  <p>You have the todo panel open with one item. You type <b>“add buy milk”</b> in the chat.
+  The browser already holds shared state <code class="kw">{ todos: [{title:"walk dog"}] }</code>.
+  We trace how that state reaches the agent, how <code class="kw">manage_todos</code> runs, and how the
+  new list streams back so the panel re-renders. <b>This is the round trip we debug below.</b></p>
+</div>
+
+<!-- ─────────────────────── PART I BANNER ─────────────────────── -->
+<div class="part"><span>Part I · The Trace</span></div>
+
+<!-- ───────────────────────── 1. THE FOUR LAYERS ───────────────────────── -->
+<h2><span class="n">01</span>The four layers it crosses</h2>
+<p class="sub">Each layer has one job. The request is plain HTTP/SSE between them; nothing shares memory
+across the Node↔Python boundary.</p>
+
+<div class="arrowrow"><span>POST /api/copilotkit ▸</span><span>HttpAgent ▸ POST /todos</span><span>parse + dispatch ▸</span><span>run + stream ◂</span></div>
+<div class="pipe">
+  <div class="stage">
+    <span class="loc">:3002 · browser</span>
+    <h4>React + CopilotKit</h4>
+    <p><code class="kw">useAgent({agentId:"todo"})</code> holds shared state. <code class="kw">agent.setState</code> on edit; <code class="kw">CopilotChat</code> sends the message.</p>
+    <span class="file">TodoPage.tsx</span>
+  </div>
+  <div class="stage">
+    <span class="loc">:4002 · node</span>
+    <h4>CopilotRuntime</h4>
+    <p>Maps agent id <code class="kw">"todo"</code> → an <code class="kw">HttpAgent</code> pointed at the FastAPI route. Pure proxy + middleware.</p>
+    <span class="file">frontend/server.ts</span>
+  </div>
+  <div class="stage">
+    <span class="loc">:8002 · python</span>
+    <h4>FastAPI + AGUIAdapter</h4>
+    <p>One POST route per agent. <code class="kw">dispatch_request</code> parses the body and drives the run.</p>
+    <span class="file">backend/main.py</span>
+  </div>
+  <div class="stage">
+    <span class="loc">in-process</span>
+    <h4>Pydantic AI Agent</h4>
+    <p>Hydrates state into <code class="kw">deps</code>, runs the model loop, executes tools, streams native events back.</p>
+    <span class="file">backend/agents/todos.py</span>
+  </div>
+</div>
+<div class="note blue"><b class="lead">Naming trap:</b> the id and the route differ by a letter and mean different things.
+<ul>
+  <li><b>id</b> <code class="in">"todo"</code> (singular) — what <code class="kw">&lt;CopilotChat&gt;</code> and the runtime key on.</li>
+  <li><b>route</b> <code class="kw">/todos</code> (plural) — the FastAPI endpoint, the Python contract.</li>
+</ul>
+The two are wired together by <code class="kw">defaultUrl</code> in <code class="kw">agents.ts</code>, not by convention.</div>
+
+<!-- ───────────────────────── 2. WHAT CROSSES THE WIRE ───────────────────────── -->
+<h2><span class="n">02</span>What actually crosses the wire</h2>
+<p class="sub"><code class="kw">RunAgentInput</code> is the one typed object every AG-UI request becomes — a single run's worth
+of input (thread id, shared state, message history, frontend tools) in one validated model. The runtime POSTs a single
+JSON body to <code class="kw">/todos</code>; <code class="kw">AGUIAdapter.build_run_input</code> parses it via
+<code class="kw">RunAgentInput.model_validate_json</code>. Only these fields matter for our trace:</p>
+
+<pre><span class="c"># HTTP POST body → RunAgentInput</span>
+{
+  <span class="f">"threadId"</span>: <span class="s">"t_abc"</span>,        <span class="c">← thread id</span>
+  <span class="f">"runId"</span>:    <span class="s">"r_001"</span>,        <span class="c">← run id</span>
+  <span class="hl"><span class="f">"state"</span>:     { <span class="f">"todos"</span>: [{<span class="f">"id"</span>:<span class="s">"1"</span>,<span class="f">"title"</span>:<span class="s">"walk dog"</span>,<span class="f">"completed"</span>:false}] },  <span class="c">← shared state</span></span>
+  <span class="f">"messages"</span>:  [ { <span class="f">"role"</span>:<span class="s">"user"</span>, <span class="f">"content"</span>:<span class="s">"add buy milk"</span> }, … ],     <span class="c">← history</span>
+  <span class="f">"tools"</span>:     [ { <span class="f">"name"</span>:<span class="s">"openOrCloseTodos"</span>, … } ]              <span class="c">← frontend tools</span>
+}</pre>
+
+<div class="note blue"><b class="lead">Which process does the work?</b> The Node <b>CopilotRuntime is a pure forwarder</b> for the todo agent — it relays
+this JSON to <code class="kw">/todos</code> unchanged (its A2UI / MCP / generative-UI middlewares are scoped to other agents, not
+<code class="in">"todo"</code>). Every field is then parsed and mapped <b>inside the Python agent process</b> by pydantic_ai's
+<code class="kw">AGUIAdapter</code> — none of this happens in the runtime <code class="kw">.ts</code>.</div>
+
+<table>
+  <tr><th class="m">Field</th><th>What the Python <code class="kw">AGUIAdapter</code> does with it</th></tr>
+  <tr><td class="m">threadId</td><td>Becomes the run's <code class="kw">conversation_id</code> (reachable in tools as <code class="kw">ctx.conversation_id</code>); correlates the run.</td></tr>
+  <tr><td class="m">runId</td><td>Echoed back in the <em>outbound</em> <code class="kw">RunStartedEvent</code> / <code class="kw">RunFinishedEvent</code> so the browser can match response ↔ request. <em>Not</em> passed into the run itself.</td></tr>
+  <tr><td class="m">state</td><td>Hydrated into <code class="kw">ctx.deps.state</code> (§04).</td></tr>
+  <tr><td class="m">messages</td><td><code class="kw">load_messages</code> → Pydantic AI <code class="kw">ModelMessage</code>s, then <code class="kw">sanitize_messages</code>.</td></tr>
+  <tr><td class="m">tools</td><td>The browser's <code class="kw">useFrontendTool</code>, wrapped as an <code class="kw">_AGUIFrontendToolset</code> (an <code class="kw">ExternalToolset</code>): the model can call it, but the <em>browser</em> executes it (§06).</td></tr>
+</table>
+
+<!-- ───────────────────────── 3. DISPATCH CALL STACK ───────────────────────── -->
+<h2><span class="n">03</span><span class="dir into">inbound</span> &nbsp;The dispatch call stack</h2>
+<p class="sub">The <b>adapter</b> (<code class="kw">AGUIAdapter</code>) is the translator: it turns one AG-UI HTTP request into a Pydantic AI
+run, then turns the run's events back into AG-UI events (§07). One FastAPI route handler kicks off a fixed chain of its
+methods — read top-to-bottom: your handler (1) first, then each library call it triggers. Steps 2–5 are methods on
+<code class="kw">UIAdapter</code> in <code class="kw">pydantic_ai/ui/_adapter.py</code>; step 6 is where it hands off to the core agent.
+§09 shows this same machinery as a class design.</p>
+
+<div class="callstack">
+  <div class="cs-step you">
+    <div class="cs-num">1</div>
+    <div class="cs-card">
+      <div class="cs-head">
+        <span class="cs-sig">endpoint(request) → <span class="k">await</span> AGUIAdapter.<b>dispatch_request</b>(request, agent, deps)</span>
+        <span class="cs-loc">backend/main.py</span>
+      </div>
+      <div class="cs-desc">Your route handler. <code>deps = deps_factory()</code> — the factory (<code>AGENT_DEPS["/todos"]</code>, bound once at route registration) builds a <em>fresh</em> <code>StateDeps(TodoState())</code> per request.</div>
+    </div>
+  </div>
+
+  <div class="cs-boundary"><span>↓ control enters the pydantic_ai library</span></div>
+
+  <div class="cs-step">
+    <div class="cs-num">2</div>
+    <div class="cs-card">
+      <div class="cs-head">
+        <span class="cs-sig">UIAdapter.<b>dispatch_request</b>(…)</span>
+        <span class="cs-loc">dispatch_request</span>
+      </div>
+      <div class="cs-desc">Entry point into the library. Builds <em>this</em> request's adapter via <code>from_request</code>, then returns a streaming response of <code>run_stream(…)</code>.</div>
+    </div>
+  </div>
+
+  <div class="cs-step">
+    <div class="cs-num">3</div>
+    <div class="cs-card">
+      <div class="cs-head">
+        <span class="cs-sig">UIAdapter.<b>from_request</b>(request, agent, …)</span>
+        <span class="cs-loc">from_request</span>
+      </div>
+      <div class="cs-desc">Reads <code>await request.body()</code>; <code>build_run_input</code> parses the JSON into <code>RunAgentInput</code>. Captures the <code>Accept</code> header for SSE encoding.</div>
+    </div>
+  </div>
+
+  <div class="cs-step">
+    <div class="cs-num">4</div>
+    <div class="cs-card">
+      <div class="cs-head">
+        <span class="cs-sig">adapter.<b>run_stream</b>(…) → transform_stream(run_stream_native(…))</span>
+        <span class="cs-loc">run_stream</span>
+      </div>
+      <div class="cs-desc">Two halves: <code>run_stream_native</code> produces native Pydantic AI events; <code>transform_stream</code> converts them to AG-UI events (§07).</div>
+    </div>
+  </div>
+
+  <div class="cs-step">
+    <div class="cs-num">5</div>
+    <div class="cs-card">
+      <div class="cs-head">
+        <span class="cs-sig">adapter.<b>run_stream_native</b>(…)</span>
+        <span class="cs-loc">run_stream_native</span>
+      </div>
+      <div class="cs-desc">The heart of inbound — (a) <code>sanitize_messages</code>, (b) attach the frontend toolset, (c) <b>hydrate state</b> into <code>deps</code> (§04), (d) call the agent.</div>
+    </div>
+  </div>
+
+  <div class="cs-step">
+    <div class="cs-num">6</div>
+    <div class="cs-card">
+      <div class="cs-head">
+        <span class="cs-sig"><span class="k">async with</span> agent.<b>run_stream_events</b>(deps=…, message_history=…, toolsets=…)</span>
+        <span class="cs-loc">agent.run_stream_events</span>
+      </div>
+      <div class="cs-desc">Hands control to the core Pydantic AI run loop. From here the model is called and tools execute.</div>
+    </div>
+  </div>
+</div>
+
+<div class="note"><b class="lead">Security step you'd miss:</b> <code class="kw">sanitize_messages</code> runs <em>before</em> the agent sees history, with the default <code class="kw">manage_system_prompt='server'</code>. It:
+<ul>
+  <li><b>strips</b> any client-sent <code class="kw">SystemPromptPart</code> — a client could otherwise inject instructions;</li>
+  <li>lets the agent's own <code class="kw">system_prompt</code> be re-injected as a <em>separate</em> step in <code class="kw">run_stream_native</code> via the <code class="kw">ReinjectSystemPrompt</code> capability;</li>
+  <li><b>drops</b> dangling unresolved tool calls at the tail of client history.</li>
+</ul></div>
+
+<!-- ───────────────────────── 4. STATE HYDRATION ───────────────────────── -->
+<h2><span class="n">04</span><span class="dir into">inbound</span> &nbsp;State hydration — how the browser's todos reach <code style="font-size:.85em">ctx.deps.state</code></h2>
+<p class="sub"><b>State hydration</b> = turning the inert JSON <code class="kw">state</code> dict that arrived in the request back into the
+<em>typed</em> object the agent's tools read (<code class="kw">TodoState</code>, reached as <code class="kw">ctx.deps.state</code>). On the wire,
+state is a plain dict; in memory it has to be a validated model. This block does exactly that conversion — the single most
+important one for shared state. It lives inside <code class="kw">run_stream_native</code> and decides whether to overwrite
+<code class="kw">deps.state</code> with the frontend's payload.</p>
+
+<pre><span class="c"># inside UIAdapter.run_stream_native</span>
+<span class="k">if</span> <span class="f">isinstance</span>(deps, StateHandler):              <span class="c"># structural check, not subclass</span>
+    raw_state = self.state <span class="k">or</span> {}                <span class="c"># self.state = RunAgentInput.state</span>
+    <span class="k">if</span> <span class="f">isinstance</span>(deps.state, BaseModel):
+        <span class="hl">state = <span class="f">type</span>(deps.state).<span class="f">model_validate</span>(raw_state)  <span class="c"># TodoState.model_validate({"todos":[…]})</span></span>
+    <span class="k">else</span>:
+        state = raw_state
+    <span class="hl">deps.state = state</span>                          <span class="c"># overwrites the empty TodoState()</span>
+<span class="k">elif</span> self.state:                          <span class="c"># state sent but deps isn't a StateHandler</span>
+    warnings.<span class="f">warn</span>(<span class="s">"…state was ignored…"</span>, UserWarning)  <span class="c"># real msg names the deps type, suggests StateDeps[...]</span></pre>
+
+<table>
+  <tr><th>What</th><th>Detail (verified)</th></tr>
+  <tr><td><code class="kw">StateHandler</code> check</td><td>A <code class="kw">@runtime_checkable Protocol</code>. Passes if <code class="kw">deps</code> is a dataclass with a <code class="kw">state</code> getter/setter — <code class="kw">StateDeps</code> satisfies it structurally, <em>not</em> by inheritance.</td></tr>
+  <tr><td><code class="kw">self.state</code></td><td>The <code class="kw">AGUIAdapter.state</code> cached property returns <code class="kw">RunAgentInput.state</code>, or <code class="kw">None</code> if it's missing or an empty <code>{}</code>.</td></tr>
+  <tr><td>Validation</td><td><code class="kw">type(deps.state)</code> is <code class="kw">TodoState</code>, so <code class="kw">TodoState.model_validate(raw_state)</code> coerces the raw dict into a typed model — invalid shapes raise here.</td></tr>
+  <tr><td>Fresh per request</td><td>A <em>factory</em> <code class="kw">lambda: StateDeps(TodoState())</code> — each request gets its own empty state, overwritten above. Why a factory, not a shared instance? See <b>§10</b>.</td></tr>
+</table>
+
+<p>Inside the tool, the resolved value is reached through the <code class="kw">RunContext</code> Pydantic AI constructs for every call:</p>
+<pre><span class="c"># backend/agents/todos.py — get_todos (the read tool)</span>
+<span class="f">@todo_agent.tool</span>
+<span class="k">def</span> <span class="f">get_todos</span>(ctx: RunContext[StateDeps[TodoState]]) -> <span class="k">list</span>[<span class="k">dict</span>]:
+    <span class="k">return</span> [t.<span class="f">model_dump</span>() <span class="k">for</span> t <span class="k">in</span> <span class="hl">ctx.deps.state.todos</span>]   <span class="c"># ← [{title:"walk dog"}]</span></pre>
+<p class="sub" style="margin-top:6px"><code class="kw">ctx.deps</code> is the <code class="kw">StateDeps</code> instance · <code class="kw">ctx.deps.state</code> is the hydrated <code class="kw">TodoState</code> ·
+<code class="kw">RunContext</code> is a dataclass the runtime fills — you never build it. <code class="kw">deps</code> is its only generically-typed field.</p>
+
+<!-- ───────────────────────── 5. TOOL EXECUTION ───────────────────────── -->
+<h2><span class="n">05</span>Inside the agent — the model loop & <code style="font-size:.85em">manage_todos</code></h2>
+<p class="sub">The model reads history + system prompt, decides to call <code class="kw">manage_todos</code> with the new list, and
+Pydantic AI invokes the Python function. The return type — <code class="kw">ToolReturn</code> — is what makes shared-state sync possible.</p>
+
+<pre><span class="c"># backend/agents/todos.py — manage_todos (the write tool)</span>
+<span class="f">@todo_agent.tool</span>
+<span class="k">def</span> <span class="f">manage_todos</span>(ctx: RunContext[StateDeps[TodoState]], todos: <span class="k">list</span>[Todo]) -> ToolReturn:
+    <span class="k">for</span> todo <span class="k">in</span> todos:
+        <span class="k">if not</span> todo.id: todo.id = <span class="f">str</span>(uuid.<span class="f">uuid4</span>())
+    ctx.deps.state.todos = todos                       <span class="c"># mutate hydrated state (this request only)</span>
+    snapshot = {<span class="s">"todos"</span>: [t.<span class="f">model_dump</span>() <span class="k">for</span> t <span class="k">in</span> todos]}
+    <span class="k">return</span> ToolReturn(
+        <span class="hl">return_value=<span class="s">"Successfully updated todos"</span>,</span>       <span class="c"># ← the LLM reads THIS string</span>
+        <span class="hl">metadata=StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=snapshot),</span>  <span class="c"># ← LLM never sees this</span>
+    )</pre>
+
+<div class="note blue"><b class="lead">Why <code class="kw">ToolReturn</code> has two channels.</b>
+<ul>
+  <li><code class="kw">return_value</code> → becomes the tool-result message the model reads on its next step (“Successfully updated todos”).</li>
+  <li><code class="kw">metadata</code> → documented as <em>”accessible by the application but not sent to the LLM”</em> — the perfect side-channel for a protocol event.</li>
+</ul>
+Putting the event in <code class="kw">return_value</code> would waste tokens and confuse the model.
+<p style="margin:8px 0 0;font-size:12.5px"><b>Note:</b> <code class="kw">ToolReturn</code> also has a third field, <code class="kw">content</code> (a separate <code class="kw">UserPromptPart</code>); “two channels” is the scoped view for this trace.</p></div>
+
+<!-- ───────────────────────── 6. TOOLRETURN → EVENTS ───────────────────────── -->
+<h2><span class="n">06</span><span class="dir outof">outbound</span> &nbsp;<code style="font-size:.85em">ToolReturn</code> → <code style="font-size:.85em">ToolReturnPart</code> → AG-UI events</h2>
+<p class="sub">Two hops turn that <code class="kw">ToolReturn</code> into the stream. First the run loop splits it into a message part;
+then the event stream inspects that part and emits the snapshot.</p>
+
+<h3>Hop 1 — the run loop builds a <code class="kw">ToolReturnPart</code></h3>
+<pre><span class="c"># pydantic_ai/_agent_graph.py — after the tool function returns</span>
+<span class="k">if</span> <span class="f">isinstance</span>(tool_result, ToolReturn):
+    tool_return = tool_result
+<span class="k">else</span>:
+    tool_return = ToolReturn(return_value=tool_result)   <span class="c"># bare returns get wrapped</span>
+
+return_part = ToolReturnPart(
+    tool_name=call.tool_name,
+    tool_call_id=call.tool_call_id,
+    <span class="hl">content=tool_return.return_value,</span>     <span class="c"># "Successfully updated todos"  → goes to the model</span>
+    <span class="hl">metadata=tool_return.metadata,</span>       <span class="c"># StateSnapshotEvent            → carried, NOT to the model</span>
+)</pre>
+<p class="sub" style="margin-top:4px"><code class="kw">return_value</code>→<code class="kw">content</code>, <code class="kw">metadata</code>→<code class="kw">metadata</code> — each field maps to its own slot in the part (why two channels: see §05). <em>(Snippet trimmed: the real branch also rejects nested <code class="kw">ToolReturn</code>s and sets a <code class="kw">tool_kind</code> field.)</em></p>
+
+<h3>Hop 2 — the event stream emits the snapshot</h3>
+<p class="sub" style="margin-top:4px"><code class="kw">_handle_tool_result</code> inspects every finished tool call: it always emits the
+model-visible result, then — if the part carries an event in <code class="kw">metadata</code> — forwards that straight into the AG-UI stream.</p>
+<pre><span class="c"># pydantic_ai/ui/ag_ui/_event_stream.py — _handle_tool_result(...)</span>
+output = <span class="f">_tool_return_content</span>(result)        <span class="c"># = result.model_response_str() = "Successfully updated todos"</span>
+<span class="k">yield</span> ToolCallResultEvent(tool_call_id=result.tool_call_id, <span class="hl">content=output</span>)   <span class="c"># ① model-visible result</span>
+
+<span class="k">if</span> <span class="f">isinstance</span>(result, ToolReturnPart):
+    <span class="hl">possible_event = result.metadata <span class="k">or</span> result.content</span>      <span class="c"># metadata wins → StateSnapshotEvent</span>
+    <span class="k">if</span> <span class="f">isinstance</span>(possible_event, BaseEvent):
+        <span class="hl"><span class="k">yield</span> possible_event</span>                              <span class="c"># ② StateSnapshotEvent → straight into the AG-UI stream</span>
+    <span class="k">elif</span> <span class="f">isinstance</span>(possible_event, <span class="k">str</span> | <span class="k">bytes</span>):    <span class="c"># guard: a str is Iterable — don't char-iterate it</span>
+        <span class="k">pass</span>
+    <span class="k">elif</span> <span class="f">isinstance</span>(possible_event, Iterable):           <span class="c"># (a list of events also works)</span>
+        <span class="k">for</span> item <span class="k">in</span> possible_event:
+            <span class="k">if</span> <span class="f">isinstance</span>(item, BaseEvent): <span class="k">yield</span> item</pre>
+
+<div class="note blue"><b class="lead">Frontend-tool sidebar (<code class="kw">openOrCloseTodos</code>).</b>
+A browser <code class="kw">useFrontendTool</code> arrives in <code class="kw">RunAgentInput.tools</code> and becomes an <code class="kw">_AGUIFrontendToolset</code> — an <code class="kw">ExternalToolset</code> with no Python body. When the model calls it:
+<ol>
+  <li>the run ends in a <code class="kw">DeferredToolRequests</code> output;</li>
+  <li>the runtime ships the call to the browser, where your <code class="kw">handler</code> runs (<code class="kw">setOpen(open)</code> — open <em>or</em> close);</li>
+  <li>the result returns in a follow-up POST.</li>
+</ol>
+So “add buy milk” can span <b>two</b> round trips: one that opens the panel, one that calls <code class="kw">manage_todos</code>.</div>
+
+<!-- ───────────────────────── 7. THE OUTBOUND STREAM ───────────────────────── -->
+<h2><span class="n">07</span><span class="dir outof">outbound</span> &nbsp;The SSE event stream the browser receives</h2>
+<p class="sub">The agent run emits Pydantic AI's own <em>native</em> events; <code class="kw">transform_stream</code> rewrites each into the
+<em>AG-UI</em> events the browser's protocol understands, streamed over <b>SSE</b> (a single long-lived HTTP response the server
+pushes events into). It wraps the run: <code class="kw">before_stream()</code> first, one <code class="kw">handle_event()</code> per native
+event, <code class="kw">after_stream()</code> last — all encoded as <code class="kw">text/event-stream</code>. For the <code class="kw">manage_todos</code>
+turn, the browser sees this ordered sequence:</p>
+
+<p class="sub" style="margin-top:6px">One native event often fans out to multiple AG-UI events. <code class="kw">transform_stream</code> is the boundary where the translation happens.</p>
+
+<table>
+  <tr><th class="m">NativeEvent (Pydantic AI)</th><th class="m">AG-UI event(s) emitted</th><th>Notes</th></tr>
+  <tr><td class="m">— (before first event)</td><td class="m">RunStartedEvent</td><td><code class="kw">before_stream()</code> — carries <code class="kw">threadId</code> + <code class="kw">runId</code></td></tr>
+  <tr><td class="m">PartStartEvent (ToolCallPart)</td><td class="m">ToolCallStartEvent</td><td>Tool name + call id; for the <code class="kw">manage_todos</code> call, streamed as it arrives</td></tr>
+  <tr><td class="m">PartDeltaEvent (ToolCallPartDelta)</td><td class="m">ToolCallArgsEvent</td><td>JSON arg fragment, streamed as it arrives</td></tr>
+  <tr><td class="m">PartEndEvent (ToolCallPart)</td><td class="m">ToolCallEndEvent</td><td>Signals args complete</td></tr>
+  <tr><td class="m">FunctionToolResultEvent<br><span style="font-size:.92em">(ToolReturnPart.content)</span></td><td class="m">ToolCallResultEvent</td><td><code class="kw">content: “Successfully updated todos”</code> — the model-visible result string</td></tr>
+  <tr><td class="m">↳ same event<br><span style="font-size:.92em">(ToolReturnPart.metadata)</span></td><td class="m"><b>StateSnapshotEvent</b></td><td>One <code class="kw">FunctionToolResultEvent</code> fans out to <em>both</em> rows: the metadata channel is yielded <em>only if</em> it's a <code class="kw">BaseEvent</code> — <code class="kw">snapshot: { todos: [walk dog, buy milk] }</code>. <b>This is what re-renders the panel.</b></td></tr>
+  <tr><td class="m">PartStartEvent · PartDeltaEvent<br><span style="font-size:.92em">(TextPart / TextPartDelta)</span></td><td class="m">TextMessageStartEvent · TextMessageContentEvent</td><td>The agent's 1–2 sentence reply, streamed token-by-token</td></tr>
+  <tr><td class="m">PartEndEvent (TextPart)</td><td class="m">TextMessageEndEvent</td><td>Closes the text message — from <code class="kw">handle_text_end</code>, <em>during</em> the stream (not <code class="kw">after_stream</code>)</td></tr>
+  <tr><td class="m">— (after last event)</td><td class="m">RunFinishedEvent</td><td><code class="kw">after_stream()</code> — closes the run</td></tr>
+  <tr><td class="m">exception</td><td class="m">RunErrorEvent</td><td>Replaces <code class="kw">RunFinishedEvent</code>; RunFinished is skipped</td></tr>
+</table>
+<p class="sub" style="margin-top:-6px">Pydantic AI's native stream events are <code class="kw">PartStartEvent</code> / <code class="kw">PartDeltaEvent</code> / <code class="kw">PartEndEvent</code> (each carrying a message <em>part</em> — a <code class="kw">TextPart</code>, <code class="kw">ToolCallPart</code>, …) plus <code class="kw">FunctionToolResultEvent</code> (carrying the <code class="kw">ToolReturnPart</code>); the <code class="kw">handle_event</code> dispatch in <code class="kw">ui/_event_stream.py</code> routes each to the per-kind handlers above.</p>
+<p class="sub">Back in the browser, CopilotKit applies the <code class="kw">StateSnapshotEvent</code> to <code class="kw">agent.state.todos</code>;
+<code class="kw">useAgent</code> in <code class="kw">TodoPage.tsx</code> re-renders the <code class="kw">&lt;TodoList&gt;</code> with “buy milk” now present.
+The exact ordering of tool-call vs. text events follows whatever the model emits — but the <b>result → snapshot pairing is fixed by the code above</b>.</p>
+
+<!-- ───────────────────────── 8. SEQUENCE DIAGRAM ───────────────────────── -->
+<h2><span class="n">08</span>The full round trip</h2>
+<div class="legend">
+  <span><i style="background:var(--in)"></i> inbound (browser → agent)</span>
+  <span><i style="background:var(--out)"></i> outbound (agent → browser)</span>
+  <span><i style="background:var(--accent)"></i> in-process Pydantic AI</span>
+</div>
+<div class="seq">
+<svg viewBox="0 0 1060 500" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="12">
+  <!-- lifelines: Browser=120 Runtime=350 Adapter=610 Agent=880 -->
+  <g stroke="#d6e0e6" stroke-width="1.5">
+    <line x1="120" y1="58" x2="120" y2="478"/>
+    <line x1="350" y1="58" x2="350" y2="478"/>
+    <line x1="610" y1="58" x2="610" y2="478"/>
+    <line x1="880" y1="58" x2="880" y2="478"/>
+  </g>
+  <!-- heads -->
+  <g text-anchor="middle" font-weight="700" fill="#13212b">
+    <rect x="52" y="24" width="136" height="30" rx="6" fill="#fff" stroke="#d6e0e6"/><text x="120" y="43">Browser :3002</text>
+    <rect x="282" y="24" width="136" height="30" rx="6" fill="#fff" stroke="#d6e0e6"/><text x="350" y="43">Runtime :4002</text>
+    <rect x="524" y="24" width="172" height="30" rx="6" fill="#fff" stroke="#d6e0e6"/><text x="610" y="43">AGUIAdapter :8002</text>
+    <rect x="794" y="24" width="172" height="30" rx="6" fill="#fff" stroke="#d6e0e6"/><text x="880" y="43">Pydantic AI Agent</text>
+  </g>
+  <defs>
+    <marker id="ai" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1d6fb8"/></marker>
+    <marker id="ao" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1f8a4c"/></marker>
+    <marker id="aa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0a6e6e"/></marker>
+  </defs>
+  <g fill="#48606e">
+    <!-- inbound: browser → runtime → adapter -->
+    <text x="126" y="80">user: "add buy milk" · agent.setState({todos})</text>
+    <line x1="120" y1="92" x2="350" y2="92" stroke="#1d6fb8" stroke-width="1.6" marker-end="url(#ai)"/>
+    <text x="235" y="107" text-anchor="middle" fill="#1d6fb8">POST /api/copilotkit</text>
+
+    <line x1="350" y1="128" x2="610" y2="128" stroke="#1d6fb8" stroke-width="1.6" marker-end="url(#ai)"/>
+    <text x="480" y="122" text-anchor="middle" fill="#1d6fb8">HttpAgent → POST /todos { state, messages, tools }</text>
+
+    <!-- adapter internal note -->
+    <rect x="438" y="142" width="344" height="64" rx="6" fill="#e7f0f9" stroke="#bcd6ee"/>
+    <text x="610" y="162" text-anchor="middle" fill="#1d6fb8">build_run_input · load_messages</text>
+    <text x="610" y="180" text-anchor="middle" fill="#1d6fb8">sanitize_messages</text>
+    <text x="610" y="198" text-anchor="middle" fill="#1d6fb8" font-weight="700">deps.state = TodoState.model_validate(state)</text>
+
+    <line x1="610" y1="226" x2="880" y2="226" stroke="#0a6e6e" stroke-width="1.6" marker-end="url(#aa)"/>
+    <text x="745" y="220" text-anchor="middle" fill="#0a6e6e">run_stream_events(deps=…)</text>
+
+    <!-- agent internal note -->
+    <rect x="733" y="242" width="294" height="86" rx="6" fill="#e0f0ef" stroke="#b5dedb"/>
+    <text x="880" y="263" text-anchor="middle" fill="#0a6e6e">model loop</text>
+    <text x="880" y="282" text-anchor="middle" fill="#0a6e6e">get_todos → ctx.deps.state</text>
+    <text x="880" y="301" text-anchor="middle" fill="#0a6e6e">manage_todos → ToolReturn</text>
+    <text x="880" y="320" text-anchor="middle" fill="#0a6e6e" font-weight="700">→ ToolReturnPart(content, metadata)</text>
+
+    <!-- outbound -->
+    <line x1="880" y1="350" x2="610" y2="350" stroke="#1f8a4c" stroke-width="1.6" marker-end="url(#ao)"/>
+    <text x="745" y="344" text-anchor="middle" fill="#1f8a4c">native events</text>
+
+    <line x1="610" y1="382" x2="120" y2="382" stroke="#1f8a4c" stroke-width="1.6" marker-end="url(#ao)"/>
+    <text x="300" y="376" text-anchor="middle" fill="#1f8a4c">SSE: RunStarted · ToolCall* · ToolCallResult</text>
+
+    <line x1="610" y1="414" x2="120" y2="414" stroke="#1f8a4c" stroke-width="2.6" marker-end="url(#ao)"/>
+    <text x="300" y="408" text-anchor="middle" fill="#1f8a4c" font-weight="700">SSE: StateSnapshotEvent (from metadata)</text>
+
+    <line x1="610" y1="446" x2="120" y2="446" stroke="#1f8a4c" stroke-width="1.6" marker-end="url(#ao)"/>
+    <text x="300" y="440" text-anchor="middle" fill="#1f8a4c">SSE: TextMessage* · RunFinished</text>
+
+    <!-- browser applies snapshot -->
+    <rect x="14" y="456" width="212" height="36" rx="6" fill="#e6f4ec" stroke="#bfe3cd"/>
+    <text x="120" y="472" text-anchor="middle" fill="#1f8a4c">agent.state.todos updated</text>
+    <text x="120" y="486" text-anchor="middle" fill="#1f8a4c">TodoList re-renders</text>
+  </g>
+</svg>
+</div>
+
+<!-- ─────────────────────── PART II BANNER ─────────────────────── -->
+<div class="part"><span>Part II · Architecture &amp; Reference</span></div>
+
+<!-- ───────────────────────── 09. UIADAPTER PIPELINE ───────────────────────── -->
+<h2><span class="n">09</span>The <code style="font-size:.85em">UIAdapter</code>, structurally — three layers, one job each</h2>
+<p class="sub">§03 showed these methods in call order; here they are as a class design.
+Everything from §03 onwards runs inside this pipeline. It's worth seeing as its own diagram because
+the layers compose independently — <code class="kw">run_stream</code> can be used in tests without a Starlette response,
+and the same pipeline supports any wire protocol by swapping <code class="kw">build_event_stream()</code>.</p>
+
+<!-- layer pipeline strip -->
+<div style="margin:24px 0 6px">
+<div style="display:grid;grid-template-columns:1fr 36px 1fr 36px 1fr;align-items:center;gap:0">
+
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 16px">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--in);margin-bottom:6px">Layer 1 · execution</div>
+    <div style="font-family:var(--mono);font-size:13.5px;font-weight:700;color:var(--code);margin-bottom:8px">run_stream_native()</div>
+    <p style="margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.5">Merges history, hydrates state, injects capabilities, calls <code class="kw">agent.run_stream_events()</code></p>
+    <div style="margin-top:10px;font-family:var(--mono);font-size:11px;background:var(--in-soft);color:var(--in);display:inline-block;padding:3px 9px;border-radius:20px">→ AsyncIterator[NativeEvent]</div>
+  </div>
+
+  <div style="text-align:center;font-family:var(--mono);font-size:20px;color:var(--line)">▶</div>
+
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 16px">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px">Layer 2 · translation</div>
+    <div style="font-family:var(--mono);font-size:13.5px;font-weight:700;color:var(--code);margin-bottom:8px">transform_stream()</div>
+    <p style="margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.5">Calls <code class="kw">build_event_stream().transform_stream()</code> — the protocol adapter's extension point</p>
+    <div style="margin-top:10px;font-family:var(--mono);font-size:11px;background:var(--accent-soft);color:var(--accent);display:inline-block;padding:3px 9px;border-radius:20px">→ AsyncIterator[EventT]</div>
+  </div>
+
+  <div style="text-align:center;font-family:var(--mono);font-size:20px;color:var(--line)">▶</div>
+
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 16px">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--out);margin-bottom:6px">Layer 3 · wire</div>
+    <div style="font-family:var(--mono);font-size:13.5px;font-weight:700;color:var(--code);margin-bottom:8px">streaming_response()</div>
+    <p style="margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.5">Encodes each <code class="kw">EventT</code> as SSE (<code class="kw">text/event-stream</code>) and returns a Starlette response</p>
+    <div style="margin-top:10px;font-family:var(--mono);font-size:11px;background:var(--out-soft);color:var(--out);display:inline-block;padding:3px 9px;border-radius:20px">→ StreamingResponse</div>
+  </div>
+</div>
+</div>
+
+<!-- class map SVG -->
+<h3>Class responsibility map</h3>
+<div class="seq" style="overflow-x:auto">
+<svg viewBox="0 0 1060 470" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="12">
+  <defs>
+    <marker id="pm" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0a6e6e"/></marker>
+    <marker id="pe" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1d6fb8"/></marker>
+    <marker id="po" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1f8a4c"/></marker>
+  </defs>
+
+  <!-- ══ UIAdapter ABC ══  x=20–400, y=20–400 -->
+  <rect x="20" y="20" width="380" height="380" rx="10" fill="#f6f8f9" stroke="#d6e0e6" stroke-width="1.5"/>
+  <rect x="20" y="20" width="380" height="36" rx="10" fill="#e3f1f0" stroke="#0a6e6e" stroke-width="1.5"/>
+  <rect x="20" y="44"  width="380" height="12" fill="#e3f1f0"/>
+  <text x="210" y="41" text-anchor="middle" font-weight="700" font-size="13" fill="#0a6e6e">UIAdapter (ABC)</text>
+
+  <!-- rows: x=32 w=356 h=24 -->
+  <rect x="32" y="62"  width="356" height="24" rx="5" fill="#e7f0f9" stroke="#bcd6ee"/>
+  <text x="44" y="79"  fill="#1d6fb8" font-weight="700">from_request()</text>
+  <text x="196" y="79" fill="#48606e" font-size="10.5">classmethod · parse HTTP → adapter</text>
+
+  <rect x="32" y="90"  width="356" height="24" rx="5" fill="#eef1f3"/>
+  <text x="44" y="107" fill="#48606e">build_run_input()</text>
+  <text x="196" y="107" fill="#9ab" font-size="10.5">abstract · bytes → RunInputT</text>
+
+  <text x="44" y="130" fill="#9ab" font-size="10" letter-spacing=".06em">CACHED PROPERTIES</text>
+
+  <rect x="32" y="136" width="356" height="24" rx="5" fill="#eef1f3"/>
+  <text x="44" y="153" fill="#48606e">messages</text>
+  <text x="148" y="153" fill="#9ab" font-size="10.5">RunInputT → ModelMessage[]</text>
+
+  <rect x="32" y="164" width="356" height="24" rx="5" fill="#eef1f3"/>
+  <text x="44" y="181" fill="#48606e">state</text>
+  <text x="148" y="181" fill="#9ab" font-size="10.5">RunInputT → dict (AG-UI state)</text>
+
+  <rect x="32" y="192" width="356" height="24" rx="5" fill="#eef1f3"/>
+  <text x="44" y="209" fill="#48606e">toolset</text>
+  <text x="148" y="209" fill="#9ab" font-size="10.5">RunInputT → frontend tools</text>
+
+  <text x="44" y="232" fill="#9ab" font-size="10" letter-spacing=".06em">EXECUTION PIPELINE</text>
+
+  <rect x="32" y="238" width="356" height="24" rx="5" fill="#e7f0f9" stroke="#bcd6ee"/>
+  <text x="44" y="255" fill="#1d6fb8" font-weight="700">run_stream_native()</text>
+  <text x="228" y="255" fill="#48606e" font-size="10.5">→ NativeEvent stream</text>
+
+  <rect x="32" y="266" width="356" height="24" rx="5" fill="#e7f0f9" stroke="#bcd6ee"/>
+  <text x="44" y="283" fill="#1d6fb8" font-weight="700">transform_stream()</text>
+  <text x="228" y="283" fill="#48606e" font-size="10.5">→ EventT stream</text>
+
+  <!-- dashed extension point -->
+  <rect x="32" y="294" width="356" height="24" rx="5" fill="#fff9e6" stroke="#e8c84a" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="44" y="311" fill="#9a5b00" font-weight="700">build_event_stream()</text>
+  <text x="228" y="311" fill="#9a5b00" font-size="10.5">abstract ★ extension point</text>
+
+  <!-- separator between extension point and wire layer -->
+  <line x1="32" y1="330" x2="388" y2="330" stroke="#d6e0e6" stroke-width="1" stroke-dasharray="3 3"/>
+
+  <rect x="32" y="336" width="356" height="24" rx="5" fill="#e6f4ec" stroke="#bfe3cd"/>
+  <text x="44" y="353" fill="#1f8a4c" font-weight="700">streaming_response()</text>
+  <text x="236" y="353" fill="#48606e" font-size="10.5">→ StreamingResponse</text>
+
+  <rect x="32" y="364" width="356" height="24" rx="5" fill="#eef1f3"/>
+  <text x="44" y="381" fill="#48606e">encode_stream()</text>
+  <text x="172" y="381" fill="#9ab" font-size="10.5">EventT → SSE str</text>
+
+  <!-- ══ AGUIAdapter  x=540–810, y=78–253 ══ -->
+  <rect x="540" y="78"  width="270" height="175" rx="10" fill="#f6f8f9" stroke="#1d6fb8" stroke-width="1.5"/>
+  <rect x="540" y="78"  width="270" height="36"  rx="10" fill="#e7f0f9" stroke="#1d6fb8" stroke-width="1.5"/>
+  <rect x="540" y="102" width="270" height="12"  fill="#e7f0f9"/>
+  <text x="675" y="101" text-anchor="middle" font-weight="700" font-size="12" fill="#1d6fb8">AGUIAdapter (concrete)</text>
+  <g font-size="11" fill="#48606e">
+    <text x="554" y="130">build_run_input()</text>
+    <text x="554" y="147" font-size="10" fill="#9ab">RunAgentInput.model_validate_json</text>
+    <text x="554" y="170">build_event_stream()</text>
+    <text x="554" y="187" font-size="10" fill="#9ab">returns AGUIEventStream instance</text>
+    <text x="554" y="210">state  (cached_property)</text>
+    <text x="554" y="227" font-size="10" fill="#9ab">→ RunAgentInput.state dict</text>
+  </g>
+
+  <!-- ══ AGUIEventStream  x=540–810, y=315–460 ══ -->
+  <rect x="540" y="315" width="270" height="145" rx="10" fill="#f6f8f9" stroke="#1f8a4c" stroke-width="1.5"/>
+  <rect x="540" y="315" width="270" height="36"  rx="10" fill="#e6f4ec" stroke="#1f8a4c" stroke-width="1.5"/>
+  <rect x="540" y="339" width="270" height="12"  fill="#e6f4ec"/>
+  <text x="675" y="338" text-anchor="middle" font-weight="700" font-size="12" fill="#1f8a4c">AGUIEventStream</text>
+  <g font-size="11" fill="#48606e">
+    <text x="554" y="368">transform_stream()</text>
+    <text x="554" y="385" font-size="10" fill="#9ab">NativeEvent → AG-UI EventT</text>
+    <text x="554" y="408">streaming_response()</text>
+    <text x="554" y="425" font-size="10" fill="#9ab">EventT → SSE StreamingResponse</text>
+  </g>
+
+  <!-- ══ ARROWS ══ -->
+
+  <!-- 1. extends: UIAdapter → AGUIAdapter (dashed blue, horizontal) -->
+  <!-- exits UIAdapter right edge at cached-properties level, enters AGUIAdapter header -->
+  <line x1="402" y1="150" x2="538" y2="150" stroke="#1d6fb8" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#pe)"/>
+  <text x="406" y="144" font-size="10" fill="#1d6fb8">extends</text>
+
+  <!-- 2. creates: AGUIAdapter → AGUIEventStream (solid teal, vertical) -->
+  <!-- 60 px gap between y=253 and y=315 -->
+  <line x1="675" y1="255" x2="675" y2="313" stroke="#0a6e6e" stroke-width="1.4" marker-end="url(#pm)"/>
+  <text x="681" y="288" font-size="10" fill="#0a6e6e">creates</text>
+
+  <!-- 3. build_event_stream() returns AGUIEventStream (dashed green, L-routed) -->
+  <!-- Exits UIAdapter right edge at build_event_stream row centre (y=306)          -->
+  <!-- Runs right through the clear 140 px corridor (x=402–540) then down to y=364  -->
+  <!-- then right into AGUIEventStream left edge, safely past its header (ends y=351) -->
+  <polyline points="402,306 455,306 455,364 538,364"
+            fill="none" stroke="#1f8a4c" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#po)"/>
+  <!-- label: sits in the clear corridor below the horizontal segment, above streaming_response -->
+  <text x="406" y="323" font-size="9" fill="#1f8a4c">build_event_stream()</text>
+  <text x="406" y="334" font-size="9" fill="#1f8a4c">returns →</text>
+
+  <!-- ══ LEGEND ══ -->
+  <g font-size="10.5" fill="#48606e">
+    <line x1="850" y1="95"  x2="884" y2="95"  stroke="#0a6e6e" stroke-width="1.4" marker-end="url(#pm)"/>
+    <text x="890" y="99">calls / creates</text>
+    <line x1="850" y1="119" x2="884" y2="119" stroke="#1d6fb8" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#pe)"/>
+    <text x="890" y="123">extends / implements</text>
+    <line x1="850" y1="143" x2="884" y2="143" stroke="#1f8a4c" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#po)"/>
+    <text x="890" y="147">returns (via)</text>
+    <rect x="850" y="156" width="12" height="12" rx="2" fill="#fff9e6" stroke="#e8c84a" stroke-dasharray="3 2"/>
+    <text x="868" y="167">abstract extension point</text>
+  </g>
+</svg>
+</div>
+
+<!-- cast() explanation -->
+<h3>Why two <code class="kw">cast()</code> calls in <code class="kw">dispatch_request</code></h3>
+<p class="sub">The selected code that triggered this section. Both casts are type-checker annotations only — zero runtime effect.</p>
+
+<pre><span class="c"># pydantic_ai/ui/_adapter.py — dispatch_request</span>
+<span class="c"># The DepsT and OutputDataT come from `agent`, not from `cls`; the cast is necessary to explain this to pyright</span>
+adapter = <span class="f">cast</span>(
+    UIAdapter[RunInputT, MessageT, EventT, <span class="hl">DispatchDepsT, DispatchOutputDataT</span>],  <span class="c">← outer cast: fix return type</span>
+    <span class="k">await</span> cls.<span class="f">from_request</span>(
+        request,
+        agent=<span class="f">cast</span>(AbstractAgent[<span class="hl">AgentDepsT, OutputDataT</span>], agent),  <span class="c">← inner cast: preserve agent's concrete params</span>
+        manage_system_prompt=manage_system_prompt,
+        allowed_file_url_schemes=allowed_file_url_schemes,
+        **kwargs,
+    ),
+)</pre>
+
+<table>
+  <tr><th>cast()</th><th>Problem</th><th>Solution</th></tr>
+  <tr>
+    <td><b>Outer</b></td>
+    <td><code class="kw">from_request</code> is a classmethod — pyright infers its return type from <code class="kw">cls</code>, which carries class-level type params. The actual concrete types (<code class="kw">DispatchDepsT</code>, <code class="kw">DispatchOutputDataT</code>) come from the <code class="kw">agent</code> argument at the call site.</td>
+    <td>Cast overrides pyright's inferred return type to the correct concrete params.</td>
+  </tr>
+  <tr>
+    <td><b>Inner</b></td>
+    <td><code class="kw">agent</code> is passed in as a generic <code class="kw">AbstractAgent</code>; pyright would widen its type params when passing to <code class="kw">from_request</code>.</td>
+    <td>Cast re-states the concrete params so pyright threads them through correctly.</td>
+  </tr>
+</table>
+
+<div class="note blue"><b>The 20% that matters:</b> the real work is <code class="kw">from_request</code> (parse request → build adapter). The <code class="kw">cast</code>s paper over a limitation in how pyright handles generic classmethods — a type-level lie told to the checker so the rest of the call chain stays well-typed. They have no runtime effect whatsoever.</div>
+
+<!-- ───────────────────────── 10. CONCURRENCY & ISOLATION ───────────────────────── -->
+<h2><span class="n">10</span>Concurrency &amp; isolation — why two users never collide</h2>
+<p class="sub">The natural worry: if User&nbsp;A and User&nbsp;B hit the <code class="kw">/todos</code> agent at the same instant, does A's
+state leak into B's run? <b>No</b> — and the guarantee is structural, not luck. Trace the lifecycle of every object
+each request touches. (State hydration — the mechanism that produces each request's own <code class="kw">TodoState</code> — is explained in §04.)</p>
+
+<div class="seq">
+<svg viewBox="0 0 1060 470" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,'SF Mono',Menlo,Consolas,monospace" font-size="12">
+  <defs>
+    <marker id="cA" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#1d6fb8"/></marker>
+    <marker id="cB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#8a4fbf"/></marker>
+    <marker id="cS" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0a6e6e"/></marker>
+  </defs>
+
+  <!-- swimlane bands -->
+  <rect x="0" y="90" width="830" height="80" rx="10" fill="#f1f6fb"/>
+  <rect x="0" y="298" width="830" height="80" rx="10" fill="#f5eefb"/>
+
+  <!-- lane labels -->
+  <g font-size="11.5" font-weight="700">
+    <text x="8" y="82" fill="#1d6fb8">USER A · request r_001 · state {todos:A}</text>
+    <text x="8" y="290" fill="#8a4fbf">USER B · request r_002 · state {todos:B}</text>
+  </g>
+
+  <!-- ===== boxes: shared helper renders title + sub ===== -->
+  <!-- LANE A (box y=104 h=52; title y=125 sub y=142) -->
+  <g>
+    <rect x="8"   y="104" width="148" height="52" rx="7" fill="#fff" stroke="#bcd6ee"/>
+    <rect x="172" y="104" width="148" height="52" rx="7" fill="#fff" stroke="#bcd6ee"/>
+    <rect x="336" y="104" width="148" height="52" rx="7" fill="#fff" stroke="#bcd6ee"/>
+    <rect x="500" y="104" width="148" height="52" rx="7" fill="#fff" stroke="#bcd6ee"/>
+    <rect x="664" y="104" width="148" height="52" rx="7" fill="#fff" stroke="#bcd6ee"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="82"  y="127" font-weight="700" fill="#13212b">Request A</text><text x="82"  y="144" font-size="10.5" fill="#48606e">{todos:A}</text>
+    <text x="246" y="127" font-weight="700" fill="#13212b">endpoint()</text><text x="246" y="144" font-size="10.5" fill="#48606e">backend/main.py</text>
+    <text x="410" y="127" font-weight="700" fill="#13212b">factory()</text><text x="410" y="144" font-size="10.5" fill="#48606e">StateDeps(TodoState())</text>
+    <text x="574" y="127" font-weight="700" fill="#13212b">from_request()</text><text x="574" y="144" font-size="10.5" fill="#48606e">fresh adapter</text>
+    <text x="738" y="127" font-weight="700" fill="#13212b">model_validate()</text><text x="738" y="144" font-size="10.5" fill="#48606e">deps.state ← new</text>
+  </g>
+  <!-- LANE B (box y=312 h=52; title y=333 sub y=350) -->
+  <g>
+    <rect x="8"   y="312" width="148" height="52" rx="7" fill="#fff" stroke="#d8c4ee"/>
+    <rect x="172" y="312" width="148" height="52" rx="7" fill="#fff" stroke="#d8c4ee"/>
+    <rect x="336" y="312" width="148" height="52" rx="7" fill="#fff" stroke="#d8c4ee"/>
+    <rect x="500" y="312" width="148" height="52" rx="7" fill="#fff" stroke="#d8c4ee"/>
+    <rect x="664" y="312" width="148" height="52" rx="7" fill="#fff" stroke="#d8c4ee"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="82"  y="335" font-weight="700" fill="#13212b">Request B</text><text x="82"  y="352" font-size="10.5" fill="#48606e">{todos:B}</text>
+    <text x="246" y="335" font-weight="700" fill="#13212b">endpoint()</text><text x="246" y="352" font-size="10.5" fill="#48606e">backend/main.py</text>
+    <text x="410" y="335" font-weight="700" fill="#13212b">factory()</text><text x="410" y="352" font-size="10.5" fill="#48606e">StateDeps(TodoState())</text>
+    <text x="574" y="335" font-weight="700" fill="#13212b">from_request()</text><text x="574" y="352" font-size="10.5" fill="#48606e">fresh adapter</text>
+    <text x="738" y="335" font-weight="700" fill="#13212b">model_validate()</text><text x="738" y="352" font-size="10.5" fill="#48606e">deps.state ← new</text>
+  </g>
+
+  <!-- FRESH badges (boxes 3,4,5 both lanes) -->
+  <g font-size="9.5" font-weight="700" text-anchor="middle">
+    <rect x="438" y="96"  width="44" height="17" rx="8.5" fill="#fff" stroke="#0a6e6e"/><text x="460" y="108" fill="#0a6e6e">FRESH</text>
+    <rect x="602" y="96"  width="44" height="17" rx="8.5" fill="#fff" stroke="#0a6e6e"/><text x="624" y="108" fill="#0a6e6e">FRESH</text>
+    <rect x="758" y="96"  width="54" height="17" rx="8.5" fill="#fff" stroke="#0a6e6e"/><text x="785" y="108" fill="#0a6e6e">NEW OBJ</text>
+    <rect x="438" y="304" width="44" height="17" rx="8.5" fill="#fff" stroke="#0a6e6e"/><text x="460" y="316" fill="#0a6e6e">FRESH</text>
+    <rect x="602" y="304" width="44" height="17" rx="8.5" fill="#fff" stroke="#0a6e6e"/><text x="624" y="316" fill="#0a6e6e">FRESH</text>
+    <rect x="758" y="304" width="54" height="17" rx="8.5" fill="#fff" stroke="#0a6e6e"/><text x="785" y="316" fill="#0a6e6e">NEW OBJ</text>
+  </g>
+
+  <!-- within-lane arrows -->
+  <g stroke-width="1.5">
+    <line x1="157" y1="130" x2="170" y2="130" stroke="#1d6fb8" marker-end="url(#cA)"/>
+    <line x1="321" y1="130" x2="334" y2="130" stroke="#1d6fb8" marker-end="url(#cA)"/>
+    <line x1="485" y1="130" x2="498" y2="130" stroke="#1d6fb8" marker-end="url(#cA)"/>
+    <line x1="649" y1="130" x2="662" y2="130" stroke="#1d6fb8" marker-end="url(#cA)"/>
+    <line x1="157" y1="338" x2="170" y2="338" stroke="#8a4fbf" marker-end="url(#cB)"/>
+    <line x1="321" y1="338" x2="334" y2="338" stroke="#8a4fbf" marker-end="url(#cB)"/>
+    <line x1="485" y1="338" x2="498" y2="338" stroke="#8a4fbf" marker-end="url(#cB)"/>
+    <line x1="649" y1="338" x2="662" y2="338" stroke="#8a4fbf" marker-end="url(#cB)"/>
+  </g>
+
+  <!-- converge into shared agent (carrying each request's own deps) -->
+  <line x1="813" y1="130" x2="840" y2="150" stroke="#0a6e6e" stroke-width="1.6" marker-end="url(#cS)"/>
+  <line x1="813" y1="338" x2="840" y2="318" stroke="#0a6e6e" stroke-width="1.6" marker-end="url(#cS)"/>
+  <text x="824" y="118" font-size="10" fill="#0a6e6e">deps_A</text>
+  <text x="824" y="362" font-size="10" fill="#0a6e6e">deps_B</text>
+
+  <!-- shared agent box (spans both lanes) -->
+  <rect x="842" y="104" width="200" height="260" rx="10" fill="#e3f1f0" stroke="#0a6e6e"/>
+  <g text-anchor="middle">
+    <text x="942" y="142" font-weight="700" font-size="13" fill="#0a6e6e">Pydantic AI Agent</text>
+    <text x="942" y="160" font-size="11" fill="#0a6e6e">ONE shared instance</text>
+    <line x1="864" y1="176" x2="1020" y2="176" stroke="#bcdedb"/>
+    <text x="942" y="200" font-size="11" fill="#48606e">tools · system prompt</text>
+    <text x="942" y="218" font-size="11" fill="#48606e">model config</text>
+    <text x="942" y="262" font-size="11.5" font-weight="700" fill="#0a6e6e">🔒 read-only at run time</text>
+    <text x="942" y="294" font-size="11" fill="#48606e">owns no per-request</text>
+    <text x="942" y="310" font-size="11" fill="#48606e">mutable state</text>
+    <text x="942" y="340" font-size="10.5" fill="#0a6e6e">ctx.deps threads A↛B</text>
+  </g>
+
+  <!-- isolation boundary -->
+  <line x1="0" y1="234" x2="830" y2="234" stroke="#c9b8e0" stroke-width="1.4" stroke-dasharray="6 5"/>
+  <rect x="328" y="224" width="174" height="20" rx="10" fill="#fff" stroke="#d6e0e6"/>
+  <text x="415" y="238" text-anchor="middle" font-size="10.5" fill="#48606e">ISOLATION BOUNDARY</text>
+</svg>
+</div>
+
+<p class="sub" style="margin-top:2px">Both lanes feed the <b>same</b> Agent object on the right, yet carry <b>different</b> <code class="kw">deps</code>.
+The Agent is shared because it's read-only during a run; <code class="kw">deps</code> is per-request because it's the
+mutable part. Those two facts are the whole guarantee.</p>
+
+<table>
+  <tr><th>Object</th><th>Lifecycle</th><th>Why it's safe</th></tr>
+  <tr><td>Agent <span class="m">todos.py</span></td><td><span class="life shared">SHARED</span></td><td>Built once at import; holds tools, system prompt, model config. <b>Read-only</b> during a run — no per-call mutable fields, so concurrent reads can't race.</td></tr>
+  <tr><td>deps factory <span class="m">__init__.py</span></td><td><span class="life shared">SHARED</span></td><td>A <code class="kw">lambda</code> — a <em>constructor</em>, not an instance. Holds no state itself, so sharing it is harmless.</td></tr>
+  <tr><td>adapter <span class="m">ui/_adapter.py</span></td><td><span class="life per">PER-REQUEST</span></td><td><code class="kw">from_request()</code> mints a <b>new</b> adapter wrapping <em>this</em> request's <code class="kw">run_input</code>. <code class="kw">self.state</code> is a <code class="kw">@cached_property</code> off it — scoped to one request.</td></tr>
+  <tr><td>deps <span class="m">main.py</span></td><td><span class="life per">PER-REQUEST</span></td><td><code class="kw">deps = deps_factory()</code> runs <em>inside</em> the handler, so each request gets its own <code class="kw">StateDeps(TodoState())</code>.</td></tr>
+  <tr><td>deps.state <span class="m">ui/_adapter.py</span></td><td><span class="life per">PER-REQUEST</span></td><td><code class="kw">model_validate()</code> builds a <b>brand-new, deep-constructed</b> <code class="kw">TodoState</code> (nested <code class="kw">Todo</code>s rebuilt too), then rebinds. Shares no mutable object with the old default or the raw dict.</td></tr>
+  <tr><td>RunContext.deps <span class="m">_run_context.py</span></td><td><span class="life per">PER-REQUEST</span></td><td>Threads <em>this</em> request's <code class="kw">deps</code> into every tool as <code class="kw">ctx.deps</code>. A's <code class="kw">manage_todos</code> can never see B's <code class="kw">deps</code>.</td></tr>
+</table>
+
+<div class="note"><b>The single line that holds it all up.</b> Every guarantee above collapses if <code class="kw">deps</code> is a shared
+<em>instance</em> instead of a <em>factory</em>. Pydantic AI hands you that choice on purpose — <code class="kw">dispatch_request(deps=…)</code>
+takes a value and never builds it for you, because only the app knows the right scope.</div>
+
+<pre><span class="c"># backend/agents/__init__.py — the linchpin</span>
+<span class="hl">AGENT_DEPS[<span class="s">"/todos"</span>] = <span class="k">lambda</span>: StateDeps(TodoState())   <span class="c"># ✓ SAFE — new instance per request</span></span>
+
+<span class="c"># If it were a singleton, deps.state = state would race across users:</span>
+AGENT_DEPS[<span class="s">"/todos"</span>] = StateDeps(TodoState())             <span class="c"># ✗ NEVER — one object shared by all requests</span></pre>
+
+<div class="note blue"><b>Scope of the guarantee.</b> Isolation here is <b>per-request</b>, not per-conversation. The backend keeps
+<em>nothing</em> between turns — persistence relies on the browser round-tripping <code class="kw">todos</code> back in each
+<code class="kw">RunAgentInput.state</code> (§02). In the AG-UI model the <b>client is the source of truth</b> for state; the server
+hydrates it fresh, runs, streams a snapshot back, and forgets.</div>
+
+<!-- ───────────────────────── 11. SOURCE MAP ───────────────────────── -->
+<h2><span class="n">11</span>Verified source map</h2>
+<p class="sub">Every entry below was opened and confirmed in this repo's <code class="kw">.venv</code>. Search by symbol name to jump straight to the
+code — symbols survive library upgrades, line numbers don't. Library paths are relative to <code class="kw">pydantic_ai/</code>.</p>
+
+<table>
+  <tr><th>Stage</th><th class="m">File · symbol</th><th>What to look for</th></tr>
+  <tr><td>Route handler</td><td class="m">backend/main.py</td><td><code class="kw">_make_endpoint</code> → fresh <code class="kw">deps</code> → <code class="kw">dispatch_request</code></td></tr>
+  <tr><td>Deps factory</td><td class="m">backend/agents/__init__.py</td><td><code class="kw">"/todos": lambda: StateDeps(TodoState())</code></td></tr>
+  <tr><td>Agent + tools</td><td class="m">backend/agents/todos.py</td><td><code class="kw">TodoState</code> · <code class="kw">todo_agent</code> · <code class="kw">manage_todos</code> · <code class="kw">get_todos</code></td></tr>
+  <tr><td><span class="acc">Parse body</span></td><td class="m">ui/ag_ui/_adapter.py</td><td><code class="kw">build_run_input</code> → <code class="kw">RunAgentInput.model_validate_json</code></td></tr>
+  <tr><td><span class="acc">State extraction</span></td><td class="m">ui/ag_ui/_adapter.py</td><td><code class="kw">state</code> property reads <code class="kw">RunAgentInput.state</code></td></tr>
+  <tr><td><span class="acc">Dispatch</span></td><td class="m">ui/_adapter.py</td><td><code class="kw">dispatch_request</code> → <code class="kw">from_request</code> → <code class="kw">run_stream</code></td></tr>
+  <tr><td><span class="acc">Sanitize</span></td><td class="m">ui/_adapter.py</td><td><code class="kw">sanitize_messages</code> strips client system prompts</td></tr>
+  <tr><td><span class="acc">State hydration</span></td><td class="m">ui/_adapter.py</td><td><code class="kw">isinstance(deps, StateHandler)</code> → <code class="kw">model_validate</code> → <code class="kw">deps.state =</code></td></tr>
+  <tr><td><span class="acc">Run loop call</span></td><td class="m">ui/_adapter.py</td><td><code class="kw">agent.run_stream_events(deps=…)</code></td></tr>
+  <tr><td>StateDeps / StateHandler</td><td class="m">ui/_adapter.py</td><td>Protocol + dataclass</td></tr>
+  <tr><td>RunContext</td><td class="m">_run_context.py</td><td><code class="kw">deps</code> is the only typed field</td></tr>
+  <tr><td>ToolReturn</td><td class="m">messages.py</td><td><code class="kw">return_value</code> / <code class="kw">metadata</code> split</td></tr>
+  <tr><td><span class="acc">ToolReturn → Part</span></td><td class="m">_agent_graph.py</td><td><code class="kw">content=return_value</code>, <code class="kw">metadata=metadata</code></td></tr>
+  <tr><td><span class="acc">Snapshot emission</span></td><td class="m">ui/ag_ui/_event_stream.py</td><td><code class="kw">metadata or content</code> → <code class="kw">yield</code> if <code class="kw">BaseEvent</code></td></tr>
+  <tr><td><span class="acc">Stream orchestration</span></td><td class="m">ui/_event_stream.py</td><td><code class="kw">before_stream</code> · <code class="kw">handle_event</code> · <code class="kw">after_stream</code></td></tr>
+</table>
+
+<footer>
+  Traced against pydantic_ai (installed in <code style="background:none;color:inherit;padding:0">.venv/lib/python3.12/site-packages</code>) ·
+  CopilotKit demo · L6 todo agent · generated 2026-05-24.
+</footer>
+
+</div>
+</body>
+</html>

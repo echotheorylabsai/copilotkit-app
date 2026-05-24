@@ -1,0 +1,61 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Python FastAPI via debugpy. --reload is intentionally absent:
+      // uvicorn's file-watcher forks a child process that debugpy can't
+      // follow, so breakpoints silently stop working after the first reload.
+      // Restart the debugger to pick up Python changes during a debug session.
+      "name": "Python: FastAPI Backend",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["backend.main:app", "--port", "8002"],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false,
+      "console": "integratedTerminal"
+    },
+    {
+      // Node CopilotRuntime (server.ts) via tsx.
+      // tsx is a Node.js wrapper so VS Code's node debugger attaches via the
+      // standard --inspect protocol. Source maps resolve .ts lines directly.
+      "name": "Node: CopilotRuntime",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/frontend/node_modules/.bin/tsx",
+      "program": "${workspaceFolder}/frontend/server.ts",
+      "cwd": "${workspaceFolder}/frontend",
+      "envFile": "${workspaceFolder}/.env",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "console": "integratedTerminal"
+    },
+    {
+      // Vite dev server — no debug protocol needed, just keep it running.
+      "name": "Vite: Frontend",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/frontend/node_modules/.bin/vite",
+      "args": ["--port", "3002"],
+      "cwd": "${workspaceFolder}/frontend",
+      "noDebug": true,
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack (Debug)",
+      "configurations": [
+        "Python: FastAPI Backend",
+        "Node: CopilotRuntime",
+        "Vite: Frontend"
+      ],
+      "stopAll": true
+    }
+  ]
+}
