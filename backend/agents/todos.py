@@ -1,8 +1,7 @@
-"""L6 — shared-state todo agent (Claude Haiku).
+"""Shared-state todo agent (Claude Haiku).
 
-Ports the LangGraph L6 notebook concept to Pydantic AI. The agent and the frontend
-share one typed state object (`TodoState`); the AG-UI protocol syncs both sides each
-turn:
+The agent and the frontend share one typed state object (`TodoState`); the AG-UI
+protocol syncs both sides each turn:
 
 - Frontend → backend: the UI sends its state in `RunAgentInput.state`; `StateDeps`
   validates it and injects it as `ctx.deps.state`.

@@ -3,7 +3,7 @@
 // Consumed by three places that previously each hardcoded the list:
 //   - App.tsx              → dropdown options + the AgentId type
 //   - server.ts            → CopilotRuntime agents map + a2ui middleware scope
-//   - use-example-suggestions.ts → which agents get the L4 suggestions
+//   - use-example-suggestions.ts → which agents get the A2UI suggestions
 //
 // This module is pure data (no React, no process.env reads), so it is safe to
 // import from both the browser bundle and the Node runtime. `server.ts` is the
@@ -48,11 +48,11 @@ export const AGENTS = [
     openGenUi: true,
   },
   {
-    // L6 shared-state todo agent. `page: true` keeps it OUT of the L2–L5 chat
-    // dropdown (it lives on its own /todos route) while still being wired into the
-    // runtime by server.ts, which maps over the full AGENTS list.
+    // Shared-state todo agent. `page: true` keeps it OUT of the chat dropdown (it
+    // lives on its own /todos route) while still being wired into the runtime by
+    // server.ts, which maps over the full AGENTS list.
     id: "todo",
-    label: "Todos (L6)",
+    label: "Todos",
     envVar: "TODO_AGENT_URL",
     defaultUrl: "http://localhost:8002/todos",
     a2ui: false,
@@ -66,15 +66,15 @@ export type AgentId = (typeof AGENTS)[number]["id"];
 /** Agent selected on first load (matches the original default). */
 export const DEFAULT_AGENT_ID: AgentId = "claude";
 
-/** Agents shown in the L2–L5 chat dropdown (everything except dedicated-page agents). */
+/** Agents shown in the chat dropdown (everything except dedicated-page agents). */
 export const DROPDOWN_AGENTS = AGENTS.filter((a) => !("page" in a && a.page));
 
-/** Agent ids that receive A2UI middleware injection + the L4 suggestions. */
+/** Agent ids that receive A2UI middleware injection + the A2UI suggestions. */
 export const A2UI_AGENT_IDS: readonly AgentId[] = AGENTS.filter((a) => a.a2ui).map(
   (a) => a.id,
 );
 
-/** Agent ids that receive the L5 Excalidraw MCP App + open-generative-UI middleware. */
+/** Agent ids that receive the Excalidraw MCP App + open-generative-UI middleware. */
 export const OPEN_GEN_UI_AGENT_IDS: readonly AgentId[] = AGENTS.filter(
   (a) => a.openGenUi,
 ).map((a) => a.id);

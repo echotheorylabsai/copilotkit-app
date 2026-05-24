@@ -1,4 +1,4 @@
-# L2/L3 plain chat agent (Anthropic Haiku). Mirrors the notebook's create_agent().
+# Plain chat agent (Anthropic Haiku).
 # The runtime/frontend id "claude" maps to this route (see frontend/src/agents.ts).
 
 from pydantic_ai import Agent

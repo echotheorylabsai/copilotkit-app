@@ -1,7 +1,7 @@
 """Minimal A2UI envelope builder (no copilotkit/langgraph dependency).
 
-Replicates the operation shapes the notebook's `copilotkit.a2ui` helper produces,
-in the exact form expected by the Node `@ag-ui/a2ui-middleware`: a tool result whose
+Replicates the operation shapes the `copilotkit.a2ui` helper produces, in the exact
+form expected by the Node `@ag-ui/a2ui-middleware`: a tool result whose
 JSON carries an `a2ui_operations` array of per-operation objects.
 """
 

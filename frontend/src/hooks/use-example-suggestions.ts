@@ -1,7 +1,7 @@
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 import { A2UI_AGENT_IDS, OPEN_GEN_UI_AGENT_IDS, AgentId } from "../agents";
 
-// L3 suggestions work on every agent (frontend useComponent tools: pieChart, flightCard).
+// These suggestions work on every agent (frontend useComponent tools: pieChart, flightCard).
 const L3_SUGGESTIONS = [
   {
     title: "Show my name",
@@ -17,7 +17,7 @@ const L3_SUGGESTIONS = [
   },
 ];
 
-// L4 suggestions need the a2ui agent's tools (get_sales_data + render_a2ui,
+// A2UI suggestions need the a2ui agent's tools (get_sales_data + render_a2ui,
 // search_flights + display_flights). They no-op on default/claude, so only
 // surface them when the a2ui agent is selected.
 const A2UI_SUGGESTIONS = [
@@ -31,7 +31,7 @@ const A2UI_SUGGESTIONS = [
   },
 ];
 
-// L5 suggestions need the open-gen-ui agent's Excalidraw MCP App + open
+// Open-gen-UI suggestions need the open-gen-ui agent's Excalidraw MCP App + open
 // generative UI middleware. They no-op on the other agents, so only surface
 // them when the open agent is selected.
 const OPEN_GEN_UI_SUGGESTIONS = [

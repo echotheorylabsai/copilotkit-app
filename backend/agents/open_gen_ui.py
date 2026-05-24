@@ -1,4 +1,4 @@
-# ── L5: open generative UI agent (Sonnet 4.6) ────────────────────────────────
+# ── Open generative UI agent (Sonnet 4.6) ────────────────────────────────────
 # Additive. Like the a2ui agent, this stays a plain chat agent on the backend.
 # The Node CopilotRuntime (scoped to this agent in frontend/server.ts) injects the
 # capability tools via middleware:
@@ -9,7 +9,7 @@
 
 from pydantic_ai import Agent
 
-# Light-touch on purpose — like the L5 lesson, the capability comes from the
+# Light-touch on purpose — the capability comes from the
 # runtime-injected tools (Excalidraw MCP app + open generative UI), not from heavy
 # prompt engineering. We only nudge the model toward the right surface per request;
 # the user's own wording ("…using excalidraw", "make a card with raining tacos")

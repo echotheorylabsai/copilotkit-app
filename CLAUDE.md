@@ -5,21 +5,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A demo chat app: React/CopilotKit frontend ⇄ Node CopilotRuntime ⇄ Python FastAPI
-serving five Pydantic AI agents, all over the **AG-UI protocol**. It demonstrates
-progressively richer generative UI ("levels"):
+serving five Pydantic AI agents, all over the **AG-UI protocol**. Each agent
+demonstrates a progressively richer generative-UI capability:
 
-- **L2** — plain chat (OpenAI `default`, Claude `claude` agents).
-- **L3** — frontend-defined tools rendered as React components (`useComponent` in
+- **Plain chat** — the OpenAI `default` and Claude `claude` agents.
+- **Frontend-defined tools rendered as React components** (`useComponent` in
   `App.tsx`: `flightCard`, `pieChart`). Works on every agent.
-- **L4** — declarative A2UI: the agent emits a component *schema* + data, the
+- **Declarative A2UI** — the agent emits a component *schema* + data, the
   frontend catalog renders it. Only the `a2ui` agent (Sonnet 4.6).
-- **L5** — open generative UI: the `open` agent (Sonnet 4.6) gets two
+- **Open generative UI** — the `open` agent (Sonnet 4.6) gets two
   runtime-injected, **scoped** capabilities — the Excalidraw MCP App and
   `openGenerativeUI` (arbitrary HTML/CSS/JS rendered in a sandboxed iframe). The
   backend agent stays tool-less; the capability is wired in `frontend/server.ts`.
-- **L6** — shared state: the `todo` agent (Haiku 4.5) and the UI share one typed
+- **Shared state** — the `todo` agent (Haiku 4.5) and the UI share one typed
   state object (`todos`). Lives on its own `/todos` **route** (react-router), not the
-  dropdown, so its `useFrontendTool` + layout stay isolated from L2–L5. Frontend→agent
+  dropdown, so its `useFrontendTool` + layout stay isolated from the chat agents. Frontend→agent
   sync is automatic (`agent.setState` → `RunAgentInput.state` → `StateDeps[TodoState]`);
   agent→frontend sync is **opt-in** — a tool returns
   `ToolReturn(metadata=StateSnapshotEvent(...))` (Pydantic AI does *not* auto-emit like
@@ -58,14 +58,14 @@ Browser (:3002, Vite proxy /api/copilotkit → :4002)
 - **Backend** (`backend/main.py`): registers one POST route per entry in
   `AGENT_ROUTES` (`backend/agents/__init__.py`), each dispatched through `AGUIAdapter`.
   Each agent lives in its own submodule (`backend/agents/openai.py`, `claude.py`,
-  `a2ui.py`, `open_gen_ui.py`); the package `__init__.py` aggregates them into
-  `AGENT_ROUTES`.
+  `a2ui.py`, `open_gen_ui.py`, `todos.py`); the package `__init__.py` aggregates them
+  into `AGENT_ROUTES`.
 - **Runtime** (`frontend/server.ts`): maps each `AGENTS` entry to an `HttpAgent`
   pointing at its FastAPI route. Three middlewares are **scoped** so they only
   attach to the agents that should have them — unscoping any of them injects its
-  tools into every agent and breaks the other levels:
-  - `@ag-ui/a2ui-middleware` → `A2UI_AGENT_IDS` (injects `render_a2ui`, L4).
-  - `mcpApps` (Excalidraw) and `openGenerativeUI` → `OPEN_GEN_UI_AGENT_IDS` (L5).
+  tools into every agent and breaks the other agents:
+  - `@ag-ui/a2ui-middleware` → `A2UI_AGENT_IDS` (injects `render_a2ui`).
+  - `mcpApps` (Excalidraw) and `openGenerativeUI` → `OPEN_GEN_UI_AGENT_IDS`.
     These are CopilotRuntime middlewares applied via `agent.use(...)`, so they work
     on the AG-UI `HttpAgent`s with **no backend change**. `mcpApps` scopes via each
     server's `agentId`; `openGenerativeUI` via `{ agents: [...] }` (never `true`).
@@ -103,7 +103,7 @@ Single sources of truth:
 - **A2UI agent prompt is load-bearing.** `A2UI_SYSTEM_PROMPT` dictates exactly which
   tools to call for flights vs. dashboards and the precise `render_a2ui` component
   shape (flat props, `component` not `type`, no `Box`). Editing it changes behavior.
-- **L5 capabilities must stay scoped, and the MCP server is reached at request time.**
+- **The `open` agent's capabilities must stay scoped, and the MCP server is reached at request time.**
   `mcpApps`/`openGenerativeUI` in `server.ts` are scoped to `OPEN_GEN_UI_AGENT_IDS`;
   setting `openGenerativeUI: true` or omitting a server's `agentId` leaks the tools
   into every agent. Unlike A2UI, the `open` agent's prompt is intentionally

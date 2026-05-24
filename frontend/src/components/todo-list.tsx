@@ -1,4 +1,4 @@
-// L6 todo panel. Pure presentational component: it reads the shared `todos` array
+// Todo panel. Pure presentational component: it reads the shared `todos` array
 // and reports user edits back through `onUpdate` (which the page wires to
 // `agent.setState`). The backend agent and this panel are two writers of the same
 // shared state.

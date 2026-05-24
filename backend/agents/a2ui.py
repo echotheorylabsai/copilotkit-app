@@ -1,4 +1,4 @@
-# ── L4: A2UI (declarative generative UI) agent ───────────────────────────────
+# ── A2UI (declarative generative UI) agent ───────────────────────────────────
 # Additive. The Node @ag-ui/a2ui-middleware (scoped to this agent in server.ts)
 # injects the dynamic `render_a2ui` frontend tool and the A2UI protocol guidelines.
 
@@ -23,7 +23,7 @@ COMPONENT_NAMES = [
 ]
 
 # Fixed flight-card carousel: a predefined, data-bound A2UI component tree
-# (ported verbatim from the L4 notebook, originally produced by the A2UI Composer).
+# (originally produced by the A2UI Composer).
 #
 # This is *true* declarative data binding — the schema is fixed and only the data
 # changes per call. The root List uses a structural-children template

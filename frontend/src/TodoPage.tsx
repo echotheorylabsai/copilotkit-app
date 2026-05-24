@@ -3,8 +3,8 @@ import { z } from "zod";
 import { CopilotChat, useAgent, useFrontendTool } from "@copilotkit/react-core/v2";
 import { TodoList, Todo } from "./components/todo-list";
 
-// L6 — shared-state todo canvas. Lives on its own /todos route so the frontend tool
-// and shared-state wiring stay isolated from the L2–L5 agents (they only exist while
+// Shared-state todo canvas. Lives on its own /todos route so the frontend tool
+// and shared-state wiring stay isolated from the chat agents (they only exist while
 // this page is mounted).
 export default function TodoPage() {
   const [open, setOpen] = useState(false);
